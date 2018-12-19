@@ -121,12 +121,18 @@ def main():
                     print >> sys.stderr, "main():Region not found. Moving to next file"
                     continue
 
-                ar = []
-                for i in region[3]:
-                    ar.append(str(i))
-
-                print '{}\t{}\t{}\t{}\t{}'.format(
-                    name, region[0], region[1], region[2], '\t'.join(ar))
+                if args.event:
+                    ar = []
+                    for i in region[3]:
+                        ar.append(str(i))
+                    print '{}\t{}\t{}\t{}\t{}'.format(
+                        name, region[0], region[1], region[2], '\t'.join(ar))
+                elif args.raw:
+                    ar = []
+                    for i in region[2]:
+                        ar.append(str(i))
+                    print '{}\t{}\t{}\t{}'.format(
+                    name, region[0], region[1], '\t'.join(ar))
     if args.verbose:
         end_time = time.time() - start_time
         print >> sys.stderr, "Time taken:", end_time
@@ -246,7 +252,7 @@ def pull_target(data, args, min_length=50, paf=None):
             signal = scale_data(signal)
         target = str(len(signal))
 
-        region.append(data['seq_id'])
+        #region.append(data['seq_id'])
         region.append(target)
         region.append(target_type)
         region.append(signal)
