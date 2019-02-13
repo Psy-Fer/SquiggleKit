@@ -23,7 +23,17 @@ import sklearn.preprocessing
         - tsv signal file
 
     TODO:
-        - signal visulisation
+        - get meth parameters, for Hasindu
+
+    // get channel parameters
+    const char* scaling_path = "/UniqueGlobalKey/channel_id";
+
+    hid_t scaling_group = H5Gopen(hdf5_file, scaling_path, H5P_DEFAULT);
+    digitisation =
+        fast5_read_float_attribute(scaling_group, "digitisation");
+    offset = fast5_read_float_attribute(scaling_group, "offset");
+    range = fast5_read_float_attribute(scaling_group, "range");
+   sample_rate =fast5_read_float_attribute(scaling_group, "sampling_rate");
 
 
     Testing:
@@ -80,7 +90,7 @@ def main():
                         help="Top directory path of fast5 files")
     parser.add_argument("-t", "--target",
                         help="Target information as comma delimited string structured by format type")
-    parser.add_argument("-f", "--form", choices=["pos1", "all"],
+    parser.add_argument("-f", "--form", default="all", choices=["pos1", "all"],
                         help="Format of target information")
     group.add_argument("-r", "--raw", action="store_true",
                        help="Target raw signal")
@@ -105,9 +115,9 @@ def main():
 
     # process fast5 files given top level path
     for dirpath, dirnames, files in os.walk(args.path):
-        for name in files:
-            if name.endswith('.fast5'):
-                fast5_file = os.path.join(dirpath, name)
+        for fast5 in files:
+            if fast5.endswith('.fast5'):
+                fast5_file = os.path.join(dirpath, fast5)
 
                 # extract data from file
                 data = extract_f5(fast5_file, args)
@@ -126,13 +136,13 @@ def main():
                     for i in region[3]:
                         ar.append(str(i))
                     print '{}\t{}\t{}\t{}\t{}'.format(
-                        name, region[0], region[1], region[2], '\t'.join(ar))
+                        fast5, region[0], region[1], region[2], '\t'.join(ar))
                 elif args.raw:
                     ar = []
                     for i in region[2]:
                         ar.append(str(i))
                     print '{}\t{}\t{}\t{}'.format(
-                    name, region[0], region[1], '\t'.join(ar))
+                    fast5, region[0], region[1], '\t'.join(ar))
     if args.verbose:
         end_time = time.time() - start_time
         print >> sys.stderr, "Time taken:", end_time
