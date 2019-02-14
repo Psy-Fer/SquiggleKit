@@ -275,9 +275,8 @@ def get_segs(sig, args):
             w += 1
             if prev_err:
                 prev_err = 0
-            if c >= w:
+            if c >= w and not c % w:
                 err -= 1
-
         else:
             if prev and err < args.error:
                 c += 1
