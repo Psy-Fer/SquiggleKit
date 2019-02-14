@@ -147,7 +147,7 @@ python fast5_fetcher.py -p my.paf -s sequencing_summary.txt.gz -i name.index.gz 
     python MotifSeq.py -s signals.tsv.gz --segs signals_stall_segments.tsv -a adapter.model -t 120 -d 120 > signals_adapters.tsv
 
 
-<p align="left"><img src="docs/img/MotifSeq_fig.jpg" alt="MotifSeq" width="100%" height="100%"></p>
+<p align="left"><img src="img/MotifSeq_fig.jpg" alt="MotifSeq" width="100%" height="100%"></p>
 
 
 ## Acknowledgements
