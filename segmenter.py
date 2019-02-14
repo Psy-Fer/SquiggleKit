@@ -25,6 +25,7 @@ import sklearn.preprocessing
     TODO:
         - turn into a class to import and use easily
         - make yaml file for tuning args
+        - Add parameter tuning args and plots
 
 
     -----------------------------------------------------------------------------
@@ -96,7 +97,7 @@ def main():
 
     if args.f5f:
         # file list of fast5 files.
-        # fast5_name\tquality_score
+        # fast5_name {Tab} quality_score
         # not using the second column atm
         with open(args.f5f, 'r') as s:
             for l in s:
@@ -163,7 +164,6 @@ def main():
 
     elif args.signal:
         # signal file, gzipped, from squigglepull
-        # testing
         head = True
         with gzip.open(args.signal, 'r') as s:
             for l in s:
@@ -173,8 +173,8 @@ def main():
                 l = l.strip('\n')
                 l = l.split('\t')
                 fast5 = l[0]
-                # modify the l[6:] to the column the data starts...little bit of variability here.
-                sig = np.array([int(i) for i in l[8:]], dtype=int)
+                # modify the l[3:] to the column the data starts...little bit of variability here.
+                sig = np.array([int(i) for i in l[3:]], dtype=int)
                 if not sig.any():
                     print >> sys.stderr, "nope 1"
                     continue
@@ -251,9 +251,11 @@ def get_segs(sig, args):
     median = np.median(sig)
     # use this with outlier rejection to fix stdev thresholds
     stdev = np.std(sig)
-    # t_std_list.append(stdev)
     top = median + (stdev * args.std_scale)
     bot = median - (stdev * args.std_scale)
+
+    # parameter tuning visualisation
+    # TODO: Put tuning plots here
 
     # this is the algo. Simple yet effective
     prev = False  # previous string
@@ -319,7 +321,7 @@ def test_segs(segs, args):
             if segs[0][0] > args.stall_start:
                 print >> sys.stderr, "start seg too late!"
                 return False
-        # Check second segment distance for polyT - use with adapterseq
+        # Check second segment distance for polyT
         if args.gap:
             if segs[1][0] > segs[0][1] + args.gap_dist:
                 print >> sys.stderr, "second seg too far!!"
