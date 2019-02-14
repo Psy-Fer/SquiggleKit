@@ -15,6 +15,8 @@ Full documentation: https://psy-fer.github.io/SquiggleKitDocs/
 | [MotifSeq](#motifseq)      | `Signal analysis`   | Finds nucleotide sequence motifs in signal, i.e.“Ctrl+F” |
 
 
+<img src="img/kitpic.png" width="700">
+
 
 ## Requirements
 
