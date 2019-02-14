@@ -282,8 +282,7 @@ def get_segs(sig, args):
             if prev and err < args.error:
                 c += 1
                 err += 1
-                if prev_err:
-                    prev_err += 1
+                prev_err += 1
             elif prev and (c >= args.window or not segs and c >= args.window * args.stall_len):
                 end = i - prev_err
                 prev = False
