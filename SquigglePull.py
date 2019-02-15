@@ -93,9 +93,9 @@ def main():
     parser.add_argument("-f", "--form", default="all", choices=["pos1", "all"],
                         help="Format of target information")
     group.add_argument("-r", "--raw", action="store_true",
-                       help="Target raw signal")
+                       help="Extract raw signal")
     group.add_argument("-e", "--event", action="store_true",
-                       help="Target event signal")
+                       help="Extract event signal - SOON TO BE DEPRICATED")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Engage higher output verbosity")
     parser.add_argument("-s", "--scale", action="store_true",
