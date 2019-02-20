@@ -144,8 +144,12 @@ python fast5_fetcher.py -p my.paf -s sequencing_summary.txt.gz -i name.index.gz 
 
 **Nanopore adapter identification:**
 
-    python MotifSeq.py -s signals.tsv.gz --segs signals_stall_segments.tsv -a adapter.model -t 120 -d 120 > signals_adapters.tsv
+    python MotifSeq.py -s signals.tsv.gz -a adapter.model > signals_adapters.tsv
 
+**Find kmer motif:**
+    
+     python MotifSeq.py -s signals.tsv -m scrappie_kmer.model > signals_kmer.tsv
+     
 
 <p align="left"><img src="img/MotifSeq_fig.jpg" alt="MotifSeq" width="100%" height="100%"></p>
 
