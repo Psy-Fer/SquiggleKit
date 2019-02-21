@@ -79,19 +79,19 @@ def main():
     group.add_argument("-s", "--signal",
                        help="Extracted signal file from SquigglePull")
     parser.add_argument("-a", "--adapt",
-                        help="Adapter model file")
+                        help="Adapter model file - use to find nanopore adapter")
     parser.add_argument("-m", "--model",
-                        help="Query model file")
+                        help="Query model file - use for kmer searching")
     # group.add_argument("-g", "--get_baits", choices=["pick", "auto"],
     #                     help="Generate baits file")
     parser.add_argument("--segs",
-                        help="segmenter file")
-    parser.add_argument("-b", "--baits",
-                        help="signal bait file")
-    parser.add_argument("-t", "--dtw_thresh",
-                        help="DTW distance threshold for match")
-    parser.add_argument("-d", "--motif_dist",
-                        help="max distance of adapter from start of signal")
+                        help="[Optional] segmenter file, used with --adapt")
+    # parser.add_argument("-b", "--baits",
+    #                     help="signal bait file")
+    # parser.add_argument("-t", "--dtw_thresh",
+    #                     help="DTW distance threshold for match")
+    # parser.add_argument("-d", "--motif_dist",
+    #                     help="max distance of adapter from start of signal")
     parser.add_argument("-v", "--view", action="store_true",
                         help="view each output")
     parser.add_argument("-scale_hi", "--scale_hi", type=int, default=1200,
@@ -113,8 +113,8 @@ def main():
         adapter = read_synth_model(args.adapt)
     if args.model:
         model = read_synth_model(args.model)
-    if args.baits:
-        baits = read_bait_model(args.baits)
+    # if args.baits:
+    #     baits = read_bait_model(args.baits)
 
     if args.f5f:
         # file list of fast5 files.
@@ -284,13 +284,14 @@ def read_synth_model(filename):
     read squiggle data ready for dtw
     '''
     dic = {}
-    first = False
     with open(filename, 'r') as r:
         for l in r:
             l = l.strip('\n')
             if l[0] == '#':
                 name = l[1:]
                 dic[name] = []
+            elif l[:3] == "pos":
+                continue
             else:
                 l = l.split()
                 dic[name] = dic[name] + [float(l[2])] * int(round(float(l[4])))
@@ -354,9 +355,11 @@ def get_adapter(args, sig, adapter):
     Call segmenter for Stall?
     '''
     pos = []
+    name = adapter.keys()[0]
+    # make this an argument variable
     sig_search = sig[:800]
     # seg = segmenter_call() # sig[seg[1]:]
-    dist, cost, path = dtw_subsequence(adapter['adapter'], sig_search)
+    dist, cost, path = dtw_subsequence(adapter[name], sig_search)
     start = path[1][0]
     end = path[1][-1]
     print "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
@@ -378,9 +381,11 @@ def get_adapter_2(args, sig, adapter, segs):
     Call segmenter for Stall?
     '''
     pos = []
+    name = adapter.keys()[0]
+    # make this an argument variable
     sig_search = sig[segs[1]:segs[1] + 800]
     # seg = segmenter_call() # sig[seg[1]:]
-    dist, cost, path = dtw_subsequence(adapter['adapter'], sig_search)
+    dist, cost, path = dtw_subsequence(adapter[name], sig_search)
     start = path[1][0] + segs[1]
     end = path[1][-1] + segs[1]
 
