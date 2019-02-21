@@ -140,16 +140,37 @@ python fast5_fetcher.py -p my.paf -s sequencing_summary.txt.gz -i name.index.gz 
 
 ### MotifSeq
 
+**Nanopore adapter identification**
+
+Building an adapter model:
+
+    scrappie squiggle adapter.fa > adapter.model
+
+Identify stalls in signal using segmenter:
+
     python segmenter.py -s signals.tsv.gz -ku -j 100 > signals_stall_segments.tsv
 
-**Nanopore adapter identification:**
+Identifying nanopore adapters in signal up stream of identified stalls from segmenter:
 
-    python MotifSeq.py -s signals.tsv.gz -a adapter.model > signals_adapters.tsv
+    python MotifSeq.py -s signals.tsv.gz --segs signals_stall_segments.tsv -a adapter.model > signals_adapters.tsv
+
 
 **Find kmer motif:**
-    
-     python MotifSeq.py -s signals.tsv -m scrappie_kmer.model > signals_kmer.tsv
-     
+
+Building an adapter model:
+
+fasta format for scrappie:
+
+    >my_kmer_name
+    ATCGATCGCTATGCTAGCATTACG
+
+Make the model from scrappie:
+
+    scrappie squiggle my_kmer.fa > scrappie_kmer.model
+
+find the best match to that kmer in the signal:
+
+    python MotifSeq.py -s signals.tsv -m scrappie_kmer.model > signals_kmer.tsv
 
 <p align="left"><img src="img/MotifSeq_fig.jpg" alt="MotifSeq" width="100%" height="100%"></p>
 
