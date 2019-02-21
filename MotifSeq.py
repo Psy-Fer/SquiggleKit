@@ -82,6 +82,8 @@ def main():
                         help="Adapter model file - use to find nanopore adapter")
     parser.add_argument("-m", "--model",
                         help="Query model file - use for kmer searching")
+    parser.add_argument("-x", "--sig_extract", action="store_true",
+                        help="Extract signal of match")
     # group.add_argument("-g", "--get_baits", choices=["pick", "auto"],
     #                     help="Generate baits file")
     parser.add_argument("--segs",
@@ -148,13 +150,13 @@ def main():
                 # Do the search
                 if args.segs and args.adapt:
                     if fast5 in segments:
-                        get_adapter_2(args, sig, adapter, segments[fast5])
+                        get_adapter_2(args, sig, adapter, segments[fast5], fast5)
                     else:
-                        get_adapter(args, sig, adapter)
+                        get_adapter(args, sig, adapter, fast5)
                 elif args.adapt:
-                    get_adapter(args, sig, adapter)
+                    get_adapter(args, sig, adapter, fast5)
                 if args.model:
-                    get_region(args, sig, model)
+                    get_region(args, sig, model, fast5)
 
     elif args.f5_path:
         # process fast5 files given top level path
@@ -178,13 +180,13 @@ def main():
                     # Do the search
                     if args.segs and args.adapt:
                         if fast5 in segments:
-                            get_adapter_2(args, sig, adapter, segments[fast5])
+                            get_adapter_2(args, sig, adapter, segments[fast5], fast5)
                         else:
-                            get_adapter(args, sig, adapter)
+                            get_adapter(args, sig, adapter, fast5)
                     elif args.adapt:
-                        get_adapter(args, sig, adapter)
+                        get_adapter(args, sig, adapter, fast5)
                     if args.model:
-                        get_region(args, sig, model)
+                        get_region(args, sig, model, fast5)
 
     elif args.signal:
         # signal file, gzipped, from squigglepull
@@ -218,13 +220,13 @@ def main():
 
                 if args.segs and args.adapt:
                     if fast5 in segments:
-                        get_adapter_2(args, sig, adapter, segments[fast5])
+                        get_adapter_2(args, sig, adapter, segments[fast5], fast5)
                     else:
-                        get_adapter(args, sig, adapter)
+                        get_adapter(args, sig, adapter, fast5)
                 elif args.adapt:
-                    get_adapter(args, sig, adapter)
+                    get_adapter(args, sig, adapter, fast5)
                 if args.model:
-                    get_region(args, sig, model)
+                    get_region(args, sig, model, fast5)
 
     else:
         print >> sys.stderr, "Unknown file or path input"
@@ -349,7 +351,7 @@ def get_segs(segfile):
     return dic
 
 
-def get_adapter(args, sig, adapter):
+def get_adapter(args, sig, adapter, fast5):
     '''
     Find adapter in signal using model/bait
     Call segmenter for Stall?
@@ -362,20 +364,24 @@ def get_adapter(args, sig, adapter):
     dist, cost, path = dtw_subsequence(adapter[name], sig_search)
     start = path[1][0]
     end = path[1][-1]
-    print "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
+    
+    if args.sig_extract:
+        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
+    else:
+        print "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
     if args.view:
         view_adapter(sig, start, end)
 
-    if test_adapter(start):
-        return True
-    else:
-        return False
+    # if test_adapter(start):
+    #     return True
+    # else:
+    #     return False
 
     # pos = [dist, start, end]
     # return pos
 
 
-def get_adapter_2(args, sig, adapter, segs):
+def get_adapter_2(args, sig, adapter, segs, fast5):
     '''
     Find adapter in signal using model/bait
     Call segmenter for Stall?
@@ -389,15 +395,17 @@ def get_adapter_2(args, sig, adapter, segs):
     start = path[1][0] + segs[1]
     end = path[1][-1] + segs[1]
 
-    print "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - \
-        segs[1], "Length:", end - start
+    if args.sig_extract:
+        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
+    else:
+        print "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - segs[1], "Length:", end - start
     if args.view:
         view_adapter(sig, start, end, s=segs)
 
-    if test_adapter(start - segs[1]):
-        return True
-    else:
-        return False
+    # if test_adapter(start - segs[1]):
+    #     return True
+    # else:
+    #     return False
     #
     # pos = [dist, start, end]
     # return pos
@@ -429,6 +437,7 @@ def view_adapter(sig, start, end, s=False):
 def test_adapter(adapter_dist):
     '''
     look at positions of adapter and test distance from stall seg
+    NOT USED ATM
     '''
     dist = 200
     if adapter_dist <= dist:
@@ -437,7 +446,7 @@ def test_adapter(adapter_dist):
         return False
 
 
-def get_region(args, sig, model):
+def get_region(args, sig, model, fast5):
     '''
     Find any region - simple demonstration version for 1 model
     '''
@@ -447,11 +456,14 @@ def get_region(args, sig, model):
     dist, cost, path = dtw_subsequence(model[name], sig)
     start = path[1][0]
     end = path[1][-1]
-    print "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
+    if args.sig_extract:
+        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
+    else:
+        print "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
+
     if args.view:
         # view_region(sig, start, end)
         view_region(sig, start, end, cost, path, model)
-
     return
 
 # def view_region(sig, start, end, s=False):
