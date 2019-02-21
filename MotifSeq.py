@@ -117,6 +117,8 @@ def main():
         model = read_synth_model(args.model)
     # if args.baits:
     #     baits = read_bait_model(args.baits)
+    if args.sig_extract:
+        print "{}\t{}\t{}\t{}\t{}\t{}".format("fast5", "start", "end", "distance_score", "length", "normalised_signal")
 
     if args.f5f:
         # file list of fast5 files.
@@ -364,7 +366,7 @@ def get_adapter(args, sig, adapter, fast5):
     dist, cost, path = dtw_subsequence(adapter[name], sig_search)
     start = path[1][0]
     end = path[1][-1]
-    
+
     if args.sig_extract:
         print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
     else:
