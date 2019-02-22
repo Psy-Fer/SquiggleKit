@@ -370,7 +370,7 @@ def get_adapter(args, sig, adapter, fast5):
     if args.sig_extract:
         print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
     else:
-        print "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
+        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
     if args.view:
         view_adapter(sig, start, end)
 
@@ -400,7 +400,7 @@ def get_adapter_2(args, sig, adapter, segs, fast5):
     if args.sig_extract:
         print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
     else:
-        print "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - segs[1], "Length:", end - start
+        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - segs[1], "Length:", end - start
     if args.view:
         view_adapter(sig, start, end, s=segs)
 
@@ -461,7 +461,7 @@ def get_region(args, sig, model, fast5):
     if args.sig_extract:
         print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
     else:
-        print "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
+        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
 
     if args.view:
         # view_region(sig, start, end)
