@@ -2,7 +2,9 @@
 
 #### A toolkit for accessing and manipulating nanopore signal data
 
-Full documentation: https://psy-fer.github.io/SquiggleKitDocs/
+**Full documentation:** https://psy-fer.github.io/SquiggleKitDocs/
+
+**Pre-print:** [SquiggleKit: A toolkit for manipulating nanopore signal data](https://doi.org/10.1101/549741)
 
 ## Overview
 
