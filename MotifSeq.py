@@ -272,7 +272,7 @@ def process_fast5(path):
         return squig
     # extract raw signal
     try:
-        b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
+        #b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
         c = hdf['Raw/Reads'].keys()
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             squig.append(int(col))
