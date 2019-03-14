@@ -132,13 +132,26 @@ python fast5_fetcher.py -p my.paf -s sequencing_summary.txt.gz -i name.index.gz 
 
     python SquigglePlot.py -i ~/data/test.fast5
 
-### Segmenter
+**Plot files in path**
 
     python SquigglePlot.py -p ~/data/ --plot_colour -g
 
 **Plot first 2000 data points of each read from signal file and save at 300dpi pdf:**
 
     python SquigglePlot.py -s signals.tsv.gz --plot_colour teal -n 2000 --dpi 300 --no_show o--save test.pdf --save_path ./test/plots/
+
+### Segmenter
+
+**Identify any segments in folder and visualise each one**
+
+Use `f` to full screen a plot, and `ctrl+w` to close a plot and move to the next one.
+
+    python segmenter.py -p ./test/ -v
+
+**Stall identification**
+
+    python segmenter.py -s signals.tsv.gz -ku -j 100 > signals_stall_segments.tsv
+
 
 ### MotifSeq
 
