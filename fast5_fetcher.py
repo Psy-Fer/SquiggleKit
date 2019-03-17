@@ -36,6 +36,13 @@ import platform
         - autobuild index file - make it a sub script as well
         - Consider using csv.DictReader() instead of wheel building
         - options to build new index of fetched fast5s
+        - Add in verbosity for stderr outputs
+        - Add sam file compatibility for filtering
+        - Do extra checks for \r with mac/windows files
+        - Memory reduction using hashed binary indexes of larger files
+        - individual file flag
+        - Multi-fast5 support
+        - multiprocessing
 
     -----------------------------------------------------------------------------
     MIT License
@@ -48,7 +55,6 @@ import platform
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-MyParser
     The above copyright notice and this permission notice shall be included in all
     copies or substantial portions of the Software.
 
@@ -71,7 +77,7 @@ class MyParser(argparse.ArgumentParser):
 
 def main():
     '''
-    do the thing
+    Main function to control each major control function.
     '''
     parser = MyParser(
         description="fast_fetcher - extraction of specific nanopore fast5 files")
@@ -107,12 +113,16 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
 
+    # TODO: hide with verbosity
     print >> sys.stderr, "Starting things up!"
 
     p_dic = {}
     if args.pppp:
+        # TODO: hide with verbosity
         print >> sys.stderr, "PPPP state! Not extracting, exporting tar commands"
 
+
+    # Handles the trimmming of fastq or sequencing summary files depending on input
     trim_pass = False
     if args.trim:
         SS = False
@@ -134,7 +144,7 @@ def main():
         if args.seq_sum:
             SS = args.seq_sum
 
-        # final check
+        # final check for trimming
         if FQ and SS:
             trim_pass = True
             print >> sys.stderr, "Trim setting detected. Writing to working direcory"
@@ -142,6 +152,7 @@ def main():
             print >> sys.stderr, "Unable to verify both fastq and sequencing_summary files. Please check filenames and try again. Exiting..."
             sys.exit()
 
+    # Do the actual trimming depending on input type - non destructive, so can do it first
     ids = []
     if args.fastq:
         ids = get_fq_reads(args.fastq)
@@ -162,9 +173,11 @@ def main():
         filenames, ids = get_filenames(args.seq_sum, ids)
 
     paths = get_paths(args.index, filenames)
+    # TODO: hide with verbosity
     print >> sys.stderr, "extracting..."
-    # place multiprocessing pool here
+    # TODO: place multiprocessing pool here
     for p, f in paths:
+        # if -z option, get file paths for command lists
         if args.pppp:
             if p in p_dic:
                 p_dic[p].append(f)
@@ -180,6 +193,7 @@ def main():
     # For each .tar file, write a file with the tarball name as filename.tar.txt
     # and contains a list of files to extract - input for batch_tater.py
     if args.pppp:
+        # TODO: check for naming and dynamically make tater_master filename
         with open("tater_master.txt", 'w') as m:
             for i in p_dic:
                 fname = "tater_" + i.split('/')[-1] + ".txt"
@@ -191,7 +205,7 @@ def main():
                     for j in p_dic[i]:
                         f.write(j)
                         f.write('\n')
-
+    # TODO: hide with verbosity
     print >> sys.stderr, "done!"
 
 
@@ -210,6 +224,7 @@ def get_fq_reads(fastq):
     '''
     read fastq file and extract read ids
     quick and dirty to limit library requirements - still bullet fast
+    reads 4 lines at a time and on 1st line, split and get id, dropping the @ symbol
     '''
     c = 0
     read_ids = set()
@@ -234,6 +249,7 @@ def get_fq_reads(fastq):
 def get_paf_reads(reads):
     '''
     Parse paf file to pull read ids (from minimap2 alignment)
+    First field is the readID
     '''
     read_ids = set()
     if reads.endswith('.gz'):
@@ -253,6 +269,7 @@ def get_paf_reads(reads):
 def get_flat_reads(filename):
     '''
     Parse a flat file separated by line breaks \n
+    ie, one readID per line
     TODO: make @ symbol check once, as they should all be the same
     '''
     read_ids = set()
@@ -345,6 +362,8 @@ def trim_both(args, ids, FQ, SS):
 def get_filenames(seq_sum, ids):
     '''
     match read ids with seq_sum to pull filenames
+    uses set to remove possible duplicates, as well as faster "if in" checks
+    sets are hashed, lists are not, so O(N) vs O(1) complexity
     '''
     # for when using seq_sum for filtering, and not fq,paf,flat
     ss_only = False
@@ -378,6 +397,7 @@ def get_filenames(seq_sum, ids):
 def get_paths(index_file, filenames, f5=None):
     '''
     Read index and extract full paths for file extraction
+    This could be done better with byte indexing
     '''
     tar = False
     paths = []
@@ -435,6 +455,8 @@ def extract_file(args, path, filename):
     --transform not working on MacOS. Need to use gtar
     Thanks to Kai Martin for picking that one up!
 
+    TODO: move OS detection to top, and use to help compatibility for edge cases.
+          works pretty well on all systems so far, but all about dat support!
     '''
     OSystem = ""
     OSystem = args.OSystem
