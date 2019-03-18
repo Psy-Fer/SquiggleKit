@@ -31,6 +31,8 @@ import sklearn.preprocessing
     -----------------------------------------------------------------------------
 '''
 
+def print_err(*args):
+    sys.stderr.write(' '.join(map(str,args)) + '\n')
 
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
@@ -109,7 +111,7 @@ def main():
                 sig = process_fast5(path)
                 if not sig:
                     continue
-                sig = sig[:args.Num]
+                sig = np.array(sig[:args.Num])
                 sig = scale_outliers(sig, args)
                 segs = get_segs(sig, args)
                 if not segs:
@@ -124,7 +126,7 @@ def main():
                     out.append(str(i))
                     out.append(str(j))
                     output = ",".join(out)
-                print "\t".join([fast5, output])
+                print("\t".join([fast5, output]))
 
                 if args.view:
                     view_segs(segs, sig, args)
@@ -139,7 +141,7 @@ def main():
                     # extract data from file
                     sig = process_fast5(fast5_file)
                     if not sig:
-                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5_file
+                        print_err("main():data not extracted. Moving to next file", fast5_file)
                         continue
                     sig = sig[:args.Num]
                     sig = np.array(sig, dtype=int)
@@ -157,7 +159,7 @@ def main():
                         out.append(str(i))
                         out.append(str(j))
                         output = ",".join(out)
-                    print "\t".join([fast5, output])
+                    print("\t".join([fast5, output]))
 
                     if args.view:
                         view_segs(segs, sig, args)
@@ -176,18 +178,18 @@ def main():
                 # modify the l[3:] to the column the data starts...little bit of variability here.
                 sig = np.array([int(i) for i in l[3:]], dtype=int)
                 if not sig.any():
-                    print >> sys.stderr, "nope 1"
+                    print_err("nope 1")
                     continue
                 sig = sig[:args.Num]
                 sig = scale_outliers(sig, args)
                 segs = get_segs(sig, args)
                 if not segs:
-                    print >> sys.stderr, "nope 2"
+                    print_err("nope 2")
                     continue
                 if args.test:
                     segs = test_segs(segs, args)
                     if not segs:
-                        print >> sys.stderr, "nope 3"
+                        print_err("nope 3")
                         continue
                 # output sections
                 out = []
@@ -195,23 +197,23 @@ def main():
                     out.append(str(i))
                     out.append(str(j))
                     output = ",".join(out)
-                print "\t".join([fast5, output])
+                print("\t".join([fast5, output]))
 
                 if args.view:
                     view_segs(segs, sig, args)
 
     else:
-        print >> sys.stderr, "Unknown file or path input"
+        print_err("Unknown file or path input")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    print >> sys.stderr, "Done"
+    print_err("Done")
 
 
 def scale_outliers(squig, args):
     ''' Scale outliers to within m stdevs of median '''
     k = (squig > args.scale_low) & (squig < args.scale_hi)
-    return squig[k]
+    return np.array(squig[k])
 
 
 def process_fast5(path):
@@ -224,18 +226,18 @@ def process_fast5(path):
         hdf = h5py.File(path, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():fast5 file failed to open: {}'.format(path)
+        print_err('process_fast5():fast5 file failed to open: {}'.format(path))
         squig = []
         return squig
     # extract raw signal
     try:
         #b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
-        c = hdf['Raw/Reads'].keys()
+        c = list(hdf['Raw/Reads'].keys())
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             squig.append(int(col))
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():failed to extract events or fastq from', path
+        print_err('process_fast5():failed to extract events or fastq from', path)
         squig = []
     return squig
 
@@ -305,7 +307,7 @@ def get_segs(sig, args):
     if segs:
         return segs
     else:
-        print >> sys.stderr, "nope"
+        print_err("nope")
         return False
 
 
@@ -319,15 +321,15 @@ def test_segs(segs, args):
         # Check that the first segement is close to beginning for stall
         if args.stall:
             if segs[0][0] > args.stall_start:
-                print >> sys.stderr, "start seg too late!"
+                print_err("start seg too late!")
                 return False
         # Check second segment distance for polyT
         if args.gap:
             if segs[1][0] > segs[0][1] + args.gap_dist:
-                print >> sys.stderr, "second seg too far!!"
+                print_err("second seg too far!!")
                 return False
     except:
-        print >> sys.stderr, "nope!"
+        print_err("nope!")
         traceback.print_exc()
 
     return segs

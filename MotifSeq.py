@@ -14,6 +14,9 @@ rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
+def print_err(*args):
+    sys.stderr.write(' '.join(map(str,args)) + '\n')
+
 '''
 
     James M. Ferguson (j.ferguson@garvan.org.au)
@@ -118,7 +121,7 @@ def main():
     # if args.baits:
     #     baits = read_bait_model(args.baits)
     if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format("fast5", "start", "end", "distance_score", "length", "normalised_signal")
+        print("{}\t{}\t{}\t{}\t{}\t{}".format("fast5", "start", "end", "distance_score", "length", "normalised_signal"))
 
     if args.f5f:
         # file list of fast5 files.
@@ -139,7 +142,7 @@ def main():
                 fast5 = l[-1]
                 sig = process_fast5(path)
                 if not sig:
-                    print >> sys.stderr, "Failed to extract signal", path, fast5
+                    print_err("Failed to extract signal", path, fast5)
                     continue
                 sig = np.array(sig, dtype=int)
                 sig = scale_outliers(sig, args.scale_hi, args.scale_low)
@@ -170,7 +173,7 @@ def main():
                     # extract data from file
                     sig = process_fast5(fast5_file)
                     if not sig:
-                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5_file
+                        print_err("main():data not extracted. Moving to next file", fast5_file)
                         continue
                     sig = np.array(sig, dtype=int)
                     sig = scale_outliers(sig, args.scale_hi, args.scale_low)
@@ -210,7 +213,7 @@ def main():
                 # modify the l[6:] to the column the data starts...little bit of variability here.
                 sig = np.array([float(i) for i in l[8:]])
                 if not sig.any():
-                    print >> sys.stderr, "nope 1"
+                    print_err("nope 1")
                     continue
                 sig = scale_outliers(sig, args.scale_hi, args.scale_low)
                 sig = sklearn.preprocessing.scale(sig,
@@ -231,7 +234,7 @@ def main():
                     get_region(args, sig, model, fast5)
 
     else:
-        print >> sys.stderr, "Unknown file or path input"
+        print_err("Unknown file or path input")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -267,7 +270,7 @@ def process_fast5(path):
         hdf = h5py.File(path, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():fast5 file failed to open: {}'.format(path)
+        print_err('process_fast5():fast5 file failed to open: {}'.format(path))
         squig = []
         return squig
     # extract raw signal
@@ -278,7 +281,7 @@ def process_fast5(path):
             squig.append(int(col))
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():failed to extract events or fastq from', path
+        print_err('process_fast5():failed to extract events or fastq from', path)
         squig = []
     return squig
 
@@ -368,9 +371,9 @@ def get_adapter(args, sig, adapter, fast5):
     end = path[1][-1]
 
     if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
+        print("{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]])))
     else:
-        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
+        print(fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start)
     if args.view:
         view_adapter(sig, start, end)
 
@@ -398,9 +401,9 @@ def get_adapter_2(args, sig, adapter, segs, fast5):
     end = path[1][-1] + segs[1]
 
     if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
+        print("{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]])))
     else:
-        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - segs[1], "Length:", end - start
+        print(fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - segs[1], "Length:", end - start)
     if args.view:
         view_adapter(sig, start, end, s=segs)
 
@@ -459,9 +462,9 @@ def get_region(args, sig, model, fast5):
     start = path[1][0]
     end = path[1][-1]
     if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
+        print("{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]])))
     else:
-        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
+        print(fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start)
 
     if args.view:
         # view_region(sig, start, end)

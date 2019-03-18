@@ -67,6 +67,8 @@ import sklearn.preprocessing
 
 '''
 
+def print_err(*args):
+    sys.stderr.write(' '.join(map(str,args)) + '\n')
 
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
@@ -109,7 +111,7 @@ def main():
         sys.exit(1)
 
     if args.verbose:
-        print >> sys.stderr, "Verbose mode on. Starting timer"
+        print_err("Verbose mode on. Starting timer")
         start_time = time.time()
 
 
@@ -122,30 +124,30 @@ def main():
                 # extract data from file
                 data = extract_f5(fast5_file, args)
                 if not data:
-                    print >> sys.stderr, "main():data not extracted. Moving to next file"
+                    print_err("main():data not extracted. Moving to next file")
                     continue
 
                 region = pull_target(data, args)
 
                 if not region:
-                    print >> sys.stderr, "main():Region not found. Moving to next file"
+                    print_err("main():Region not found. Moving to next file")
                     continue
 
                 if args.event:
                     ar = []
                     for i in region[3]:
                         ar.append(str(i))
-                    print '{}\t{}\t{}\t{}\t{}'.format(
-                        fast5, region[0], region[1], region[2], '\t'.join(ar))
+                    print('{}\t{}\t{}\t{}\t{}'.format(
+                        fast5, region[0], region[1], region[2], '\t'.join(ar)))
                 elif args.raw:
                     ar = []
                     for i in region[2]:
                         ar.append(str(i))
-                    print '{}\t{}\t{}\t{}'.format(
-                    fast5, region[0], region[1], '\t'.join(ar))
+                    print('{}\t{}\t{}\t{}'.format(
+                    fast5, region[0], region[1], '\t'.join(ar)))
     if args.verbose:
         end_time = time.time() - start_time
-        print >> sys.stderr, "Time taken:", end_time
+        print_err("Time taken:", end_time)
 
 
 def extract_f5(filename, args, batch=False):
@@ -175,7 +177,7 @@ def extract_f5(filename, args, batch=False):
         hdf = h5py.File(filename, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'extract_fast5():fast5 file failed to open: {}'.format(filename)
+        print_err('extract_fast5():fast5 file failed to open: {}'.format(filename))
         f5_dic = {}
         return f5_dic
 
@@ -193,7 +195,7 @@ def extract_f5(filename, args, batch=False):
 
         except:
             traceback.print_exc()
-            print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
+            print_err('extract_fast5():failed to extract events or fastq from', filename)
             f5_dic = {}
 
     # extract raw signal
@@ -205,12 +207,12 @@ def extract_f5(filename, args, batch=False):
 
         except:
             traceback.print_exc()
-            print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
+            print_err('extract_fast5():failed to extract events or fastq from', filename)
             f5_dic = {}
 
     # signal flag not set
     else:
-        print >> sys.stderr, "extract_fast5():Please choose 'raw' or 'events' for the signal flag."
+        print_err("extract_fast5():Please choose 'raw' or 'events' for the signal flag.")
 
     return f5_dic
 
@@ -268,13 +270,13 @@ def pull_target(data, args, min_length=50, paf=None):
         region.append(signal)
 
     else:
-        print >> sys.stderr, "pull_target():target_type not recognised:", target_type
+        print_err("pull_target():target_type not recognised:", target_type)
         return default
 
     if region:
         return region
     else:
-        print >> sys.stderr, "pull_target():Something went wrong. Region not found"
+        print_err("pull_target():Something went wrong. Region not found")
         return default
 
 
@@ -290,7 +292,7 @@ def scale_data(data):
                                                   copy=True)
     except:
         traceback.print_exc()
-        print >> sys.stderr, "scale_data():Something went wrong, failed to scale data"
+        print_err("scale_data():Something went wrong, failed to scale data")
         return 0
     return scaled_data
 

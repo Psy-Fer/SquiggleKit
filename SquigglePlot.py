@@ -59,6 +59,8 @@ import h5py
     SOFTWARE.
 '''
 
+def print_err(*args):
+    sys.stderr.write(' '.join(map(str,args)) + '\n')
 
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
@@ -143,7 +145,7 @@ def main():
                 if head:
                     head = False
                     continue
-                l = l.strip('\n')
+                l = l.decode("utf-8").strip('\n')
                 l = l.split('\t')[0]
                 path = l
                 l = l.split('/')
@@ -155,6 +157,7 @@ def main():
                     sig = sig[:N]
                 elif N1 or N2:
                     sig = sig[N1:N2]
+                sig = np.array(sig, dtype=int)
                 sig = scale_outliers(sig, args)
                 # output sections
                 view_sig(args, sig, fast5)
@@ -169,7 +172,7 @@ def main():
                     # extract data from file
                     sig = process_fast5(fast5_file)
                     if not sig:
-                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5_file
+                        print_err("main():data not extracted. Moving to next file", fast5_file)
                         continue
                     if N:
                         sig = sig[:N]
@@ -193,13 +196,13 @@ def main():
                 if head:
                     head = False
                     continue
-                l = l.strip('\n')
+                l = l.decode("utf-8").strip('\n')
                 l = l.split('\t')
                 fast5 = l[0]
                 # modify the l[6:] to the column the data starts...little bit of variability here.
                 sig = np.array([int(i) for i in l[4:]], dtype=int)
                 if not sig.any():
-                    print >> sys.stderr, "nope 1"
+                    print_err("nope 1")
                     continue
                 if N:
                     sig = sig[:N]
@@ -214,7 +217,7 @@ def main():
         # extract data from file
         sig = process_fast5(args.ind)
         if not sig:
-            print >> sys.stderr, "main():data not extracted.", args.ind
+            print_err("main():data not extracted.", args.ind)
             parser.print_help(sys.stderr)
             sys.exit(1)
         if N:
@@ -226,11 +229,11 @@ def main():
         view_sig(args, sig, fast5)
 
     else:
-        print >> sys.stderr, "Unknown file or path input"
+        print_err("Unknown file or path input")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    print >> sys.stderr, "Done"
+    print_err("Done")
 
 
 def dicSwitch(i):
@@ -259,18 +262,18 @@ def process_fast5(path):
         hdf = h5py.File(path, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():fast5 file failed to open: {}'.format(path)
+        print_err('process_fast5():fast5 file failed to open: {}'.format(path))
         sig = []
         return sig
     # extract raw signal
     try:
         #b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
-        c = hdf['Raw/Reads'].keys()
+        c = list(hdf['Raw/Reads'].keys())
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             sig.append(int(col))
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():failed to extract events or fastq from', path
+        print_err('process_fast5():failed to extract events or fastq from', path)
         sig = []
     return sig
 
