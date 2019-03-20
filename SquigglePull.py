@@ -14,7 +14,7 @@ import sklearn.preprocessing
     Garvan Institute
     Copyright 2017
 
-    Pull squiggle data from fast5 files given some targetting method
+    Pull squiggle data from fast5 files
 
     input:
         - path to fast5 files
@@ -23,17 +23,13 @@ import sklearn.preprocessing
         - tsv signal file
 
     TODO:
-        - get meth parameters, for Hasindu
+        - Dynamic columns and data types
+        - Mult fast5 file support
+        - paf, sam, fastq, or flat file support for filtering
+        - multiprocessing
+        - use # notation at start of file for static values, size reduction,
+          including things like kits, flowcells, versions, etc, for comparisons.
 
-    // get channel parameters
-    const char* scaling_path = "/UniqueGlobalKey/channel_id";
-
-    hid_t scaling_group = H5Gopen(hdf5_file, scaling_path, H5P_DEFAULT);
-    digitisation =
-        fast5_read_float_attribute(scaling_group, "digitisation");
-    offset = fast5_read_float_attribute(scaling_group, "offset");
-    range = fast5_read_float_attribute(scaling_group, "range");
-   sample_rate =fast5_read_float_attribute(scaling_group, "sampling_rate");
 
 
     Testing:
@@ -100,6 +96,10 @@ def main():
                         help="Engage higher output verbosity")
     parser.add_argument("-s", "--scale", action="store_true",
                         help="Scale signal output for comparison")
+    parser.add_argument("-c", "--pA_convert", action="store_true",
+                        help="Convert raw signal to pA, for comparisons")
+    parser.add_argument("-m", "--meth", action="store_true",
+                        help="Print extra information used in methylation calling - nanopolish/f5c")
     # parser.add_argument("-a", "--paf",
     #                     help="paf alignment file for nt approach - Benchmarking")
     args = parser.parse_args()
@@ -138,11 +138,27 @@ def main():
                     print '{}\t{}\t{}\t{}\t{}'.format(
                         fast5, region[0], region[1], region[2], '\t'.join(ar))
                 elif args.raw:
-                    ar = []
-                    for i in region[2]:
-                        ar.append(str(i))
-                    print '{}\t{}\t{}\t{}'.format(
-                    fast5, region[0], region[1], '\t'.join(ar))
+                    if args.pA_convert:
+                        # convert signal to pA
+                        pA_sig = convert_to_pA(data)
+                        ar = []
+                        for i in pA_sig:
+                            ar.append(str(i))
+                        print '{}\t{}\t{}\t{}\t{}'.format(
+                                fast5, data['readID'], region[0], region[1], '\t'.join(ar))
+                    elif args.meth:
+                        ar = []
+                        for i in region[2]:
+                            ar.append(str(i))
+                        print '{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(fast5, data['readID'],
+                                data['digitisation'], data['offset'], data['range'],
+                                data['sampling_rate'], '\t'.join(ar))
+                    else:
+                        ar = []
+                        for i in region[2]:
+                            ar.append(str(i))
+                        print '{}\t{}\t{}\t{}\t{}'.format(
+                            fast5, data['readID'], region[0], region[1], '\t'.join(ar))
     if args.verbose:
         end_time = time.time() - start_time
         print >> sys.stderr, "Time taken:", end_time
@@ -168,7 +184,9 @@ def extract_f5(filename, args, batch=False):
     Takes the latest basecalled events table.
     '''
 
-    f5_dic = {'raw': [], 'events': [], 'seq': '', 'seq_id': ''}
+    f5_dic = {'raw': [], 'events': [], 'seq': '', 'readID': '',
+              'digitisation': 0.0, 'offset': 0.0, 'range': 0.0,
+              'sampling_rate': 0.0}
 
     # open fast5 file
     try:
@@ -189,7 +207,7 @@ def extract_f5(filename, args, batch=False):
             fq = hdf['Analyses'][b]['BaseCalled_template']['Fastq'][()
                                                                     ].split('\n')
             f5_dic['seq'] = fq
-            f5_dic['seq_id'] = fq[0].split(' ')[0].split('_')[0][1:]
+            f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id']
 
         except:
             traceback.print_exc()
@@ -198,15 +216,36 @@ def extract_f5(filename, args, batch=False):
 
     # extract raw signal
     elif args.raw:
-        try:
-            c = hdf['Raw/Reads'].keys()
-            for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
-                f5_dic['raw'].append(int(col))
+        if args.pA_convert or args.meth:
+            try:
+                c = hdf['Raw/Reads'].keys()
+                for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
+                    f5_dic['raw'].append(int(col))
 
-        except:
-            traceback.print_exc()
-            print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
-            f5_dic = {}
+
+                f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id']
+                f5_dic['digitisation'] = hdf['UniqueGlobalKey/channel_id'].attrs['digitisation']
+                f5_dic['offset'] = hdf['UniqueGlobalKey/channel_id'].attrs['offset']
+                f5_dic['range'] = float("{0:.2f}".format(hdf['UniqueGlobalKey/channel_id'].attrs['range']))
+                f5_dic['sampling_rate'] = hdf['UniqueGlobalKey/channel_id'].attrs['sampling_rate']
+
+            except:
+                traceback.print_exc()
+                print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
+                f5_dic = {}
+
+        else:
+            try:
+                c = hdf['Raw/Reads'].keys()
+                for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
+                    f5_dic['raw'].append(int(col))
+
+                f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id']
+
+            except:
+                traceback.print_exc()
+                print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
+                f5_dic = {}
 
     # signal flag not set
     else:
@@ -230,7 +269,7 @@ def pull_target(data, args, min_length=50, paf=None):
     Returns:
         - Regions of interest labelled by read_id/filename
 
-    dicf5_dic = {'events': [], 'moves': [], 'seq': '', 'seq_id': ''}
+    dicf5_dic = {'events': [], 'moves': [], 'seq': '', 'readID': ''}
     '''
     default = []
     region = []
@@ -248,7 +287,7 @@ def pull_target(data, args, min_length=50, paf=None):
         if args.scale:
             signal = scale_data(signal)
 
-        region.append(data['seq_id'])
+        region.append(data['readID'])
         region.append(target)
         region.append(target_type)
         region.append(signal)
@@ -262,7 +301,7 @@ def pull_target(data, args, min_length=50, paf=None):
             signal = scale_data(signal)
         target = str(len(signal))
 
-        #region.append(data['seq_id'])
+        #region.append(data['readID'])
         region.append(target)
         region.append(target_type)
         region.append(signal)
@@ -293,6 +332,25 @@ def scale_data(data):
         print >> sys.stderr, "scale_data():Something went wrong, failed to scale data"
         return 0
     return scaled_data
+
+
+def convert_to_pA(d):
+    '''
+    convert raw signal data to pA using digitisation, offset, and range
+    float raw_unit = range / digitisation;
+    for (int32_t j = 0; j < nsample; j++) {
+        rawptr[j] = (rawptr[j] + offset) * raw_unit;
+    }
+    '''
+    digitisation = d['digitisation']
+    range = d['range']
+    offset = d['offset']
+    raw_unit = range / digitisation
+    new_raw = []
+    for i in d['raw']:
+        j = (i + offset) * raw_unit
+        new_raw.append("{0:.2f}".format(round(j,2)))
+    return new_raw
 
 
 if __name__ == '__main__':

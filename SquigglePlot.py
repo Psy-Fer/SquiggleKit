@@ -34,6 +34,8 @@ import h5py
     TODO:
         - change size of saved figure
         - yaml/config file for multiple plots
+        - Default plot settings rolled out tookit wide
+        - light smoothing
 
     -----------------------------------------------------------------------------
     MIT License
@@ -69,10 +71,10 @@ class MyParser(argparse.ArgumentParser):
 
 def main():
     '''
-    do the thing
+    Main function for executing logic based on file input types
     '''
     parser = MyParser(
-        description="script name - script description")
+        description="SquigglePlot - plotting the raw signal data")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-f", "--f5f",
                        help="File list of fast5 paths")

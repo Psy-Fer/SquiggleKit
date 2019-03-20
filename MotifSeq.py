@@ -21,7 +21,7 @@ import matplotlib.cm as cm
     Garvan Institute
     Copyright 2018
 
-    SigTools - a nonopore raw signal toolkit
+    MotifSeq - finding signal motifs in raw nanopore signal
 
     --------------------------------------------------------------------------------------
     version 0.0 - initial
@@ -32,6 +32,13 @@ import matplotlib.cm as cm
         - Move methods of data processing into yield based functions
         - ensure all args removed from functions
         - make callable from other scripts
+        - Extra plotting options - comparing signals
+        - E value for matches
+        - Able to take different models
+        - add in scrappie API for model building
+        - adapter search values as an argument
+        - integration with segmenter
+        - Take any signal format based on headers
 
     -----------------------------------------------------------------------------
     MIT License
@@ -67,7 +74,7 @@ class MyParser(argparse.ArgumentParser):
 
 def main():
     '''
-    do the thing
+    Main function for executing logic based on file input types
     '''
     parser = MyParser(
         description="MotifSeq - the Ctrl+f for signal. Signal-level local alignment of sequence motifs.")
@@ -142,7 +149,7 @@ def main():
                     print >> sys.stderr, "Failed to extract signal", path, fast5
                     continue
                 sig = np.array(sig, dtype=int)
-                sig = scale_outliers(sig, args.scale_hi, args.scale_low)
+                sig = scale_outliers(sig, args)
                 sig = sklearn.preprocessing.scale(sig,
                                                   axis=0,
                                                   with_mean=True,
@@ -173,7 +180,7 @@ def main():
                         print >> sys.stderr, "main():data not extracted. Moving to next file", fast5_file
                         continue
                     sig = np.array(sig, dtype=int)
-                    sig = scale_outliers(sig, args.scale_hi, args.scale_low)
+                    sig = scale_outliers(sig, args)
                     sig = sklearn.preprocessing.scale(sig,
                                                       axis=0,
                                                       with_mean=True,
@@ -212,7 +219,7 @@ def main():
                 if not sig.any():
                     print >> sys.stderr, "nope 1"
                     continue
-                sig = scale_outliers(sig, args.scale_hi, args.scale_low)
+                sig = scale_outliers(sig, args)
                 sig = sklearn.preprocessing.scale(sig,
                                                   axis=0,
                                                   with_mean=True,
@@ -247,14 +254,14 @@ def dicSwitch(i):
     return open_method[i]
 
 
-def scale_outliers(squig, hi, low):
-    ''' Scale outliers to within m stdevs of median '''
-    ret = []
-    for i in squig:
-        if i > hi or i < low:
-            continue
-        ret.append(i)
-    return np.array(ret, dtype=int)
+def scale_outliers(squig, args):
+    '''
+    Remove outliers based on hi/low args.
+    I was scaling at one point, but removing tends to be less problematic
+    This can change the position co-ordinates a little
+    '''
+    k = (squig > args.scale_low) & (squig < args.scale_hi)
+    return squig[k]
 
 
 def process_fast5(path):
@@ -272,7 +279,6 @@ def process_fast5(path):
         return squig
     # extract raw signal
     try:
-        #b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
         c = hdf['Raw/Reads'].keys()
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             squig.append(int(col))
@@ -285,7 +291,7 @@ def process_fast5(path):
 
 def read_synth_model(filename):
     '''
-    read squiggle data ready for dtw
+    read squiggle data from scrappie, old and new version, ready for dtw
     '''
     dic = {}
     with open(filename, 'r') as r:
@@ -305,7 +311,7 @@ def read_synth_model(filename):
 
 def read_bait_model(filename):
     '''
-    read baited signal file
+    read baited signal file - Not currently in use
     '''
     dic = {}
     if filename.endswith('.gz'):
@@ -329,6 +335,7 @@ def get_baits(args, sig, start, end, adapter_pos):
     """
     logic to get baits from candidate read by adjusting bountaries, and locking
     in a section to be pushed to a file
+    Not currently in use
     """
     # loop on key press to modify boundaries and Visualise
 
@@ -341,7 +348,7 @@ def get_baits(args, sig, start, end, adapter_pos):
 
 def get_segs(segfile):
     '''
-    create segment dic
+    create segment dic from segmenter output
     '''
     dic = {}
     with open(segfile, 'r') as f2:
@@ -374,13 +381,6 @@ def get_adapter(args, sig, adapter, fast5):
     if args.view:
         view_adapter(sig, start, end)
 
-    # if test_adapter(start):
-    #     return True
-    # else:
-    #     return False
-
-    # pos = [dist, start, end]
-    # return pos
 
 
 def get_adapter_2(args, sig, adapter, segs, fast5):
@@ -403,14 +403,6 @@ def get_adapter_2(args, sig, adapter, segs, fast5):
         print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - segs[1], "Length:", end - start
     if args.view:
         view_adapter(sig, start, end, s=segs)
-
-    # if test_adapter(start - segs[1]):
-    #     return True
-    # else:
-    #     return False
-    #
-    # pos = [dist, start, end]
-    # return pos
 
 
 def view_adapter(sig, start, end, s=False):
@@ -468,7 +460,6 @@ def get_region(args, sig, model, fast5):
         view_region(sig, start, end, cost, path, model)
     return
 
-# def view_region(sig, start, end, s=False):
 
 
 def view_region(sig, start, end, cost, path, model, s=False):

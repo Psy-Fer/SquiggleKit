@@ -26,6 +26,10 @@ import sklearn.preprocessing
         - turn into a class to import and use easily
         - make yaml file for tuning args
         - Add parameter tuning args and plots
+        - take any column format using headers
+        - Scale based on input
+        - push algorithm into C to speed it up
+        - integration with MotifSeq
 
 
     -----------------------------------------------------------------------------
@@ -41,7 +45,7 @@ class MyParser(argparse.ArgumentParser):
 
 def main():
     '''
-    do the thing
+    Main function for executing logic based on the file input types.
     '''
     parser = MyParser(
         description="segmenter - script to find obvious regions in squiggle data")
@@ -108,12 +112,18 @@ def main():
                 fast5 = l[-1]
                 sig = process_fast5(path)
                 if not sig:
+                    print >> sys.stderr, "main():data not extracted. Moving to next file", fast5
                     continue
+                # cut signal based on -n flag
                 sig = sig[:args.Num]
+                # This removes very large high and low peaks
                 sig = scale_outliers(sig, args)
+                # Do the segment detection
                 segs = get_segs(sig, args)
                 if not segs:
+                    print >> sys.stderr, "no segments found:", fast5
                     continue
+                # run tests on segments based on user question
                 if args.test:
                     segs = test_segs(segs, args)
                     if not segs:
@@ -125,12 +135,12 @@ def main():
                     out.append(str(j))
                     output = ",".join(out)
                 print "\t".join([fast5, output])
-
+                # visualise for parameter tuning
                 if args.view:
                     view_segs(segs, sig, args)
 
     elif args.f5_path:
-        # process fast5 files given top level path
+        # process fast5 files given top level path, recursive
         for dirpath, dirnames, files in os.walk(args.f5_path):
             for fast5 in files:
                 if fast5.endswith('.fast5'):
@@ -139,14 +149,19 @@ def main():
                     # extract data from file
                     sig = process_fast5(fast5_file)
                     if not sig:
-                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5_file
+                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5
                         continue
+                    # cut signal based on -n flag
                     sig = sig[:args.Num]
                     sig = np.array(sig, dtype=int)
+                    # This removes very large high and low peaks
                     sig = scale_outliers(sig, args)
+                    # Do the segment detection
                     segs = get_segs(sig, args)
                     if not segs:
+                        print >> sys.stderr, "no segments found:", fast5
                         continue
+                    # run tests on segments based on user question
                     if args.test:
                         segs = test_segs(segs, args)
                         if not segs:
@@ -158,7 +173,7 @@ def main():
                         out.append(str(j))
                         output = ",".join(out)
                     print "\t".join([fast5, output])
-
+                    # visualise for parameter tuning
                     if args.view:
                         view_segs(segs, sig, args)
 
@@ -174,16 +189,21 @@ def main():
                 l = l.split('\t')
                 fast5 = l[0]
                 # modify the l[3:] to the column the data starts...little bit of variability here.
+                # TODO: make this based on column header
                 sig = np.array([int(i) for i in l[3:]], dtype=int)
                 if not sig.any():
-                    print >> sys.stderr, "nope 1"
+                    print >> sys.stderr, "No signal found in file:", args.signal, fast5
                     continue
+                # cut signal based on -n flag
                 sig = sig[:args.Num]
+                # This removes very large high and low peaks
                 sig = scale_outliers(sig, args)
+                # Do the segment detection
                 segs = get_segs(sig, args)
                 if not segs:
-                    print >> sys.stderr, "nope 2"
+                    print >> sys.stderr, "no segments found:", fast5
                     continue
+                # run tests on segments based on user question
                 if args.test:
                     segs = test_segs(segs, args)
                     if not segs:
@@ -196,7 +216,7 @@ def main():
                     out.append(str(j))
                     output = ",".join(out)
                 print "\t".join([fast5, output])
-
+                # visualise for parameter tuning
                 if args.view:
                     view_segs(segs, sig, args)
 
@@ -209,7 +229,11 @@ def main():
 
 
 def scale_outliers(squig, args):
-    ''' Scale outliers to within m stdevs of median '''
+    '''
+    Remove outliers based on hi/low args.
+    I was scaling at one point, but removing tends to be less problematic
+    This can change the position co-ordinates a little
+    '''
     k = (squig > args.scale_low) & (squig < args.scale_hi)
     return squig[k]
 
@@ -229,7 +253,6 @@ def process_fast5(path):
         return squig
     # extract raw signal
     try:
-        #b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
         c = hdf['Raw/Reads'].keys()
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             squig.append(int(col))
@@ -243,6 +266,9 @@ def process_fast5(path):
 def get_segs(sig, args):
     '''
     Get segments from signal
+    This works by running through the signal and finding regions that are above
+    the bot and below the top parameters, with some error tollerance, for a
+    minimum window of length.
     '''
 
     mn = sig.min()
@@ -269,28 +295,30 @@ def get_segs(sig, args):
     segs = []     # segments [(start, stop)]
     for i in range(len(sig)):
         a = sig[i]
-        if a < top and a > bot:
+        if a < top and a > bot: # If datapoint is within range
             if not prev:
                 start = i
                 prev = True
-            c += 1
-            w += 1
+            c += 1 # increase counter
+            w += 1 # increase window corrector count
             if prev_err:
                 prev_err = 0
-            if c >= w and not c % w:
-                err -= 1
+            if c >= args.window and c >= w and not c % w: # if current window longer than detect limit, and corrector, and is divisible by corrector
+                err -= 1 # drop current error count by 1
         else:
             if prev and err < args.error:
                 c += 1
                 err += 1
                 prev_err += 1
+                if c >= args.window and c >= w and not c % w:
+                    err -= 1
             elif prev and (c >= args.window or not segs and c >= args.window * args.stall_len):
-                end = i - prev_err
+                end = i - prev_err # go back to where error stretch began for accurate cutting
                 prev = False
-                if segs and start - segs[-1][1] < seg_dist:
+                if segs and start - segs[-1][1] < seg_dist: # if segs very close, merge them
                     segs[-1][1] = end
                 else:
-                    segs.append([start, end])
+                    segs.append([start, end]) # save segment
                 c = 0
                 err = 0
                 prev_err = 0
@@ -341,6 +369,7 @@ def view_segs(segs, sig, args):
     #fig.subplots_adjust(hspace=0.1, wspace=0.01)
     ax = fig.add_subplot(111)
 
+    # Show segment lines
     for i, j in segs:
         ax.axvline(x=i, color='m')
         ax.axvline(x=j, color='m')
