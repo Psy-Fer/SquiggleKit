@@ -179,7 +179,7 @@ fasta format for scrappie:
     >my_kmer_name
     ATCGATCGCTATGCTAGCATTACG
 
-Make the model from scrappie:
+Make the model from scrappie (available from ONT [here](https://github.com/nanoporetech/scrappie) ):
 
     scrappie squiggle my_kmer.fa > scrappie_kmer.model
 
