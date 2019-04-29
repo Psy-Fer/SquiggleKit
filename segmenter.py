@@ -190,7 +190,7 @@ def main():
                 fast5 = l[0]
                 # modify the l[3:] to the column the data starts...little bit of variability here.
                 # TODO: make this based on column header
-                sig = np.array([int(i) for i in l[3:]], dtype=int)
+                sig = np.array([int(i) for i in l[4:]], dtype=int)
                 if not sig.any():
                     print >> sys.stderr, "No signal found in file:", args.signal, fast5
                     continue
