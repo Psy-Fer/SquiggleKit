@@ -126,6 +126,7 @@ def main():
                     continue
 
                 region = pull_target(data, args)
+                
 
                 if not region:
                     print >> sys.stderr, "main():Region not found. Moving to next file"
@@ -133,10 +134,10 @@ def main():
 
                 if args.event:
                     ar = []
-                    for i in region[3]:
+                    for i in region[2]:
                         ar.append(str(i))
                     print '{}\t{}\t{}\t{}\t{}'.format(
-                        fast5, region[0], region[1], region[2], '\t'.join(ar))
+                        fast5, data['readID'], region[0], region[1], '\t'.join(ar))
                 elif args.raw:
                     if args.pA_convert:
                         # convert signal to pA
@@ -288,7 +289,7 @@ def pull_target(data, args, min_length=50, paf=None):
         if args.scale:
             signal = scale_data(signal)
 
-        region.append(data['readID'])
+        # region.append(data['readID'])
         region.append(target)
         region.append(target_type)
         region.append(signal)
