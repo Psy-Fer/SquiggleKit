@@ -201,6 +201,7 @@ def extract_f5(filename, args, batch=False):
     if args.event:
         try:
             b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
+            c = hdf['Raw/Reads'].keys()
             for col in hdf['Analyses'][b]['BaseCalled_template']['Events'][()]:
                 f5_dic['events'].append(float(col[0]))
 
