@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import sys
 import os
 import gzip
+import io
 import argparse
 import traceback
 import h5py
@@ -179,8 +180,14 @@ def main():
 
     elif args.signal:
         # signal file, gzipped, from squigglepull
-        head = True
-        with gzip.open(args.signal, 'r') as s:
+        head = False
+        if args.signal.endswith('.gz'):
+            f_read = dicSwitch('gz')
+        else:
+            f_read = dicSwitch('norm')
+        with f_read(args.signal, 'r') as s:
+            if args.signal.endswith('.gz'):
+                s = io.BufferedReader(s)
             for l in s:
                 if head:
                     head = False
@@ -226,6 +233,17 @@ def main():
         sys.exit(1)
 
     print >> sys.stderr, "Done"
+
+
+def dicSwitch(i):
+    '''
+    A switch to handle file opening and reduce duplicated code
+    '''
+    open_method = {
+        "gz": gzip.open,
+        "norm": open
+    }
+    return open_method[i]
 
 
 def scale_outliers(squig, args):
@@ -333,7 +351,7 @@ def get_segs(sig, args):
     if segs:
         return segs
     else:
-        print >> sys.stderr, "nope"
+        # print >> sys.stderr, "no segs found"
         return False
 
 
