@@ -199,7 +199,8 @@ def main():
 
     elif args.signal:
         # signal file, gzipped, from squigglepull
-        head = True
+        # Header False for now, soon to be fixed
+        head = False
         if args.signal.endswith('.gz'):
             f_read = dicSwitch('gz')
         else:
@@ -466,18 +467,34 @@ def view_region(sig, start, end, cost, path, model, s=False):
     '''
     Visualise model position in Signal
     '''
+    name = model.keys()[0]
+    # fig = plt.figure(1)
+    # #fig.subplots_adjust(hspace=0.1, wspace=0.01)
+    # ax = fig.add_subplot(111)
+    #
+    # ax.axvline(x=start, color='m')
+    # ax.axvline(x=end, color='m')
+    # if s:
+    #     ax.axvline(x=s[0], color='b')
+    #     ax.axvline(x=s[1], color='b')
+    #
+    # plt.plot(sig, color='grey')
 
-    fig = plt.figure(1)
-    #fig.subplots_adjust(hspace=0.1, wspace=0.01)
-    ax = fig.add_subplot(111)
-
-    ax.axvline(x=start, color='m')
-    ax.axvline(x=end, color='m')
-    if s:
-        ax.axvline(x=s[0], color='b')
-        ax.axvline(x=s[1], color='b')
-
+    fig = plt.figure()
+    fig.subplots_adjust(hspace=0.5, wspace=0.01)
+    ax1 = fig.add_subplot(211)
     plt.plot(sig, color='grey')
+
+    ax1.axvline(x=start, color='m')
+    ax1.axvline(x=end, color='m')
+
+    # plt.xlabel(name)
+    plt.ylabel("pA")
+
+    ax2 = fig.add_subplot(212)
+    found_sig = sig[start:end+1]
+    plt.plot(found_sig, color='orange')
+    plt.plot(model[name], color='blue')
 
     # fig = plt.figure(2)
     # ax = fig.add_subplot(111)
@@ -488,13 +505,13 @@ def view_region(sig, start, end, cost, path, model, s=False):
     # # plt.subplots_adjust(bottom=0.1, right=0.8, top=0.9)
     # # cax = plt.axes([0.85, 0.1, 0.075, 0.8])
     # # plt.colorbar(cax=cax)
-
+    #
     # fig = plt.figure(3)
     # ax = fig.add_subplot(111)
     # plt.plot(sig[start:end], color='grey')
     # name = model.keys()[0]
     # plt.plot(model[name], color='blue')
-
+    #
     # fig = plt.figure(4)
     # ax = fig.add_subplot(111)
     # plt.plot(sig[start:end], color='grey')
@@ -505,6 +522,7 @@ def view_region(sig, start, end, cost, path, model, s=False):
     # plt.plot(model[name], color='blue')
 
     plt.show()
+    plt.clf()
     plt.clf()
 
 
