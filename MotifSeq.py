@@ -131,12 +131,12 @@ def main():
         # file list of fast5 files.
         # fast5_name\tquality_score
         # not using the second column atm
-        if args.f5f.endswith('.gz'):
+        if args.f5f.endswith('.gz') or args.f5f.endswith('.gzip'):
             f_read = dicSwitch('gz')
         else:
             f_read = dicSwitch('norm')
         with f_read(args.f5f, 'rb') as s:
-            if args.f5f.endswith('.gz'):
+            if args.f5f.endswith('.gz') or args.f5f.endswith('.gzip'):
                 s = io.BufferedReader(s)
             for l in s:
                 l = l.strip('\n')
@@ -201,12 +201,12 @@ def main():
         # signal file, gzipped, from squigglepull
         # Header False for now, soon to be fixed
         head = False
-        if args.signal.endswith('.gz'):
+        if args.signal.endswith('.gz') or args.signal.endswith('.gzip'):
             f_read = dicSwitch('gz')
         else:
             f_read = dicSwitch('norm')
         with f_read(args.signal, 'rb') as s:
-            if args.signal.endswith('.gz'):
+            if args.signal.endswith('.gz') or args.signal.endswith('.gzip'):
                 s = io.BufferedReader(s)
             for l in s:
                 if head:
@@ -315,12 +315,12 @@ def read_bait_model(filename):
     read baited signal file - Not currently in use
     '''
     dic = {}
-    if filename.endswith('.gz'):
+    if filename.endswith('.gz') or filename.endswith('.gzip'):
         f_read = dicSwitch('gz')
     else:
         f_read = dicSwitch('norm')
     with f_read(filename, 'rb') as s:
-        if filename.endswith('.gz'):
+        if filename.endswith('.gz') or filename.endswith('.gzip'):
             s = io.BufferedReader(s)
         for l in s:
             l = l.strip('\n')
