@@ -205,7 +205,7 @@ def main():
             f_read = dicSwitch('gz')
         else:
             f_read = dicSwitch('norm')
-        with f_read(args.signal, 'rb') as s:
+        with f_read(args.signal, 'rt') as s:
             if args.signal.endswith('.gz'):
                 s = io.BufferedReader(s)
             for l in s:
@@ -226,6 +226,7 @@ def main():
                                                   with_mean=True,
                                                   with_std=True,
                                                   copy=True)
+
                 # Do the search
 
                 if args.segs and args.adapt:
