@@ -4,19 +4,34 @@ import gzip
 import io
 import traceback
 import argparse
+import math
 import numpy as np
+import scipy.stats as st
 import h5py
-import sklearn.preprocessing
+import scrappy
 from mlpy import dtw_subsequence
 from matplotlib import rcParams
 rcParams['pdf.fonttype'] = 42
 rcParams['ps.fonttype'] = 42
+rcParams['figure.figsize'] = [12.0, 12.0]
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import matplotlib.cm as cm
+# import matplotlib.image as mpimg
+import signal
+
+# Intercept ctrl-c, ctrl-\ and ctrl-z
+def signal_handler(signum, frame):
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGQUIT, signal_handler)
+signal.signal(signal.SIGTSTP, signal_handler)
 
 '''
 
-    James M. Ferguson (j.ferguson@garvan.org.au)
+    James M. Ferguson (j.ferguson[at]garvan.org.au)
     Genomic Technologies
     Garvan Institute
     Copyright 2018
@@ -25,6 +40,9 @@ import matplotlib.cm as cm
 
     --------------------------------------------------------------------------------------
     version 0.0 - initial
+    ...
+    version 1.3.0 - scrappie imported, cleaned up vis, python3, med-MAD scaling,
+                    scrapped adapter and segments, change models,
 
 
 
@@ -32,13 +50,8 @@ import matplotlib.cm as cm
         - Move methods of data processing into yield based functions
         - ensure all args removed from functions
         - make callable from other scripts
-        - Extra plotting options - comparing signals
-        - E value for matches
-        - Able to take different models
-        - add in scrappie API for model building
-        - adapter search values as an argument
-        - integration with segmenter
         - Take any signal format based on headers
+        - MultiFast5File support
 
     -----------------------------------------------------------------------------
     MIT License
@@ -76,37 +89,44 @@ def main():
     '''
     Main function for executing logic based on file input types
     '''
+    VERSION = "1.3.0"
+
     parser = MyParser(
-        description="MotifSeq - the Ctrl+f for signal. Signal-level local alignment of sequence motifs.")
+        description="MotifSeq - the Ctrl+f for signal. Signal-level local alignment of sequence motifs")
     group = parser.add_mutually_exclusive_group()
+    mods = parser.add_mutually_exclusive_group()
     group.add_argument("-f", "--f5f",
                        help="File list of fast5 paths")
     group.add_argument("-p", "--f5_path",
                        help="Fast5 top dir")
     group.add_argument("-s", "--signal",
                        help="Extracted signal file from SquigglePull")
-    parser.add_argument("-a", "--adapt",
-                        help="Adapter model file - use to find nanopore adapter")
-    parser.add_argument("-m", "--model",
-                        help="Query model file - use for kmer searching")
+    parser.add_argument("-l", "--scale", default="medmad", choices=["zscale", "medmad"],
+                       help="scaling/normalisation factor to use")
+    mods.add_argument("-i", "--fasta_input",
+                        help="fasta file to be converted to simulated signal by scrappy")
+    parser.add_argument("--scrappie_model", default="squiggle_r94", choices=['squiggle_r94', 'squiggle_r94_rna', 'squiggle_r10'],
+                        help="model to use with fasta_input for conversion")
+    mods.add_argument("-m", "--model",
+                        help="custom multiline .tsv of signal to search for - see docs - name{tab}60{tab}435...")
     parser.add_argument("-x", "--sig_extract", action="store_true",
                         help="Extract signal of match")
-    # group.add_argument("-g", "--get_baits", choices=["pick", "auto"],
-    #                     help="Generate baits file")
-    parser.add_argument("--segs",
-                        help="[Optional] segmenter file, used with --adapt")
-    # parser.add_argument("-b", "--baits",
-    #                     help="signal bait file")
-    # parser.add_argument("-t", "--dtw_thresh",
-    #                     help="DTW distance threshold for match")
-    # parser.add_argument("-d", "--motif_dist",
-    #                     help="max distance of adapter from start of signal")
+    parser.add_argument("--slope", type=float, default=2.90,
+                        help="[Experimental] slope")
+    parser.add_argument("--intercept", type=float, default=-9.6,
+                        help="[Experimental] intercept")
+    parser.add_argument("--std_const", type=float, default=0.08468,
+                        help="[Experimental] standard deviation constant")
     parser.add_argument("-v", "--view", action="store_true",
                         help="view each output")
     parser.add_argument("-scale_hi", "--scale_hi", type=int, default=1200,
                         help="Upper limit for signal outlier scaling")
     parser.add_argument("-scale_low", "--scale_low", type=int, default=0,
                         help="Lower limit for signal outlier scaling")
+    parser.add_argument("-V", "--version", action="store_true",
+                        help="Print version information")
+    parser.add_argument("--verbose", action="store_true",
+                        help="engage higher level of verbosity for troubleshooting")
     args = parser.parse_args()
 
     # print help if no arguments given
@@ -114,18 +134,37 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
 
+    # print metadata
+    if args.version:
+        sys.stderr.write("SquiggleKit MotifSeq: {}\n".format(VERSION))
+        sys.exit(1)
+
+    if args.verbose:
+        sys.stderr.write("Verbose mode active - dumping info to stderr\n")
+        sys.stderr.write("SquiggleKit MotifSeq: {}\n".format(VERSION))
+        sys.stderr.write("args: {}\n".format(args))
+
+    if args.scale == "zscale":
+        import sklearn.preprocessing
+
+
+    sys.stderr.write("\n\n**********************************************************\n")
+    sys.stderr.write("*  z-score, p-value, probability, etc. are based on      *\n")
+    sys.stderr.write("*     preliminary experimental modeling only             *\n")
+    sys.stderr.write("*                Use at own risk                         *\n")
+    sys.stderr.write("**********************************************************\n\n\n")
+
     squig = []
 
-    if args.segs:
-        segments = get_segs(args.segs)
-    if args.adapt:
-        adapter = read_synth_model(args.adapt)
     if args.model:
-        model = read_synth_model(args.model)
-    # if args.baits:
-    #     baits = read_bait_model(args.baits)
+        # model, m_order, L = read_synth_model(args.model)
+        model, m_order, L = read_bait_model(args.model)
+    if args.fasta_input:
+        model, m_order, L = convert_fasta(args.fasta_input, args.scrappie_model)
     if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format("fast5", "start", "end", "distance_score", "length", "normalised_signal")
+        print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format("fast5", "readID", "model", "start", "end", "length", "distance_score", "model_mean", "model_stdev", "Z-score", "p-value", "hit_Probability", "normalised_signal"))
+    else:
+        print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format("fast5", "readID", "model", "start", "end", "length", "distance_score", "model_mean", "model_stdev", "Z-score", "p-value", "hit_Probability"))
 
     if args.f5f:
         # file list of fast5 files.
@@ -135,37 +174,44 @@ def main():
             f_read = dicSwitch('gz')
         else:
             f_read = dicSwitch('norm')
-        with f_read(args.f5f, 'rb') as s:
-            if args.f5f.endswith('.gz'):
-                s = io.BufferedReader(s)
+        with f_read(args.f5f, 'rt') as s:
             for l in s:
                 l = l.strip('\n')
                 l = l.split('\t')[0]
                 path = l
                 l = l.split('/')
                 fast5 = l[-1]
-                sig = process_fast5(path)
+                sig, read_ID = process_fast5(path)
                 if not sig:
-                    print >> sys.stderr, "Failed to extract signal", path, fast5
+                    sys.stderr.write("Failed to extract signal: {} {}\n".format(path, fast5))
                     continue
                 sig = np.array(sig, dtype=int)
                 sig = scale_outliers(sig, args)
-                sig = sklearn.preprocessing.scale(sig,
+                if args.scale == "zscale":
+                    sig = sklearn.preprocessing.scale(sig,
                                                   axis=0,
                                                   with_mean=True,
                                                   with_std=True,
                                                   copy=True)
+                elif args.scale == "medmad":
+                    arr = np.ma.array(sig).compressed()
+                    med = np.median(arr)
+                    mad = np.median(np.abs(arr - med))
+                    scaled_mad = mad * 1.4826
+                    mad_sig = []
+                    for i in sig:
+                        mad_sig.append((i - med) / scaled_mad)
+                    sig = np.array(mad_sig)
+                else:
+                    sys.stderr.write("unknown scale parameter: {}\n".format(args.scale))
+                    sys.exit()
 
                 # Do the search
-                if args.segs and args.adapt:
-                    if fast5 in segments:
-                        get_adapter_2(args, sig, adapter, segments[fast5], fast5)
-                    else:
-                        get_adapter(args, sig, adapter, fast5)
-                elif args.adapt:
-                    get_adapter(args, sig, adapter, fast5)
                 if args.model:
-                    get_region(args, sig, model, fast5)
+                    get_region_multi(args, sig, model, m_order, fast5, read_ID, args.slope, args.intercept, args.std_const, L)
+                if args.fasta_input:
+                    get_region_multi(args, sig, model, m_order, fast5, read_ID, args.slope, args.intercept, args.std_const, L)
+
 
     elif args.f5_path:
         # process fast5 files given top level path
@@ -175,39 +221,47 @@ def main():
                     fast5_file = os.path.join(dirpath, fast5)
 
                     # extract data from file
-                    sig = process_fast5(fast5_file)
+                    sig, read_ID = process_fast5(fast5_file)
                     if not sig:
-                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5_file
+                        sys.stderr.write("main():data not extracted. Moving to next file - {}\n".format(fast5_file))
                         continue
                     sig = np.array(sig, dtype=int)
                     sig = scale_outliers(sig, args)
-                    sig = sklearn.preprocessing.scale(sig,
+                    if args.scale == "zscale":
+                        sig = sklearn.preprocessing.scale(sig,
                                                       axis=0,
                                                       with_mean=True,
                                                       with_std=True,
                                                       copy=True)
+                    elif args.scale == "medmad":
+                        arr = np.ma.array(sig).compressed()
+                        med = np.median(arr)
+                        mad = np.median(np.abs(arr - med))
+                        scaled_mad = mad * 1.4826
+                        mad_sig = []
+                        for i in sig:
+                            mad_sig.append((i - med) / scaled_mad)
+                        sig = np.array(mad_sig)
+                    else:
+                        sys.stderr.write("unknown scale parameter: {}\n".format(args.scale))
+                        sys.exit()
+
                     # Do the search
-                    if args.segs and args.adapt:
-                        if fast5 in segments:
-                            get_adapter_2(args, sig, adapter, segments[fast5], fast5)
-                        else:
-                            get_adapter(args, sig, adapter, fast5)
-                    elif args.adapt:
-                        get_adapter(args, sig, adapter, fast5)
                     if args.model:
-                        get_region(args, sig, model, fast5)
+                        get_region_multi(args, sig, model, m_order, fast5, read_ID, args.slope, args.intercept, args.std_const, L)
+                    if args.fasta_input:
+                        get_region_multi(args, sig, model, m_order, fast5, read_ID, args.slope, args.intercept, args.std_const, L)
+
 
     elif args.signal:
         # signal file, gzipped, from squigglepull
-        # Header False for now, soon to be fixed
+        # Header False for now, soon to be fixed - make argument, default True
         head = False
         if args.signal.endswith('.gz'):
             f_read = dicSwitch('gz')
         else:
             f_read = dicSwitch('norm')
         with f_read(args.signal, 'rt') as s:
-            if args.signal.endswith('.gz'):
-                s = io.BufferedReader(s)
             for l in s:
                 if head:
                     head = False
@@ -215,32 +269,40 @@ def main():
                 l = l.strip('\n')
                 l = l.split('\t')
                 fast5 = l[0]
+                read_ID = l[1]
                 # modify the l[6:] to the column the data starts...little bit of variability here.
                 sig = np.array([float(i) for i in l[8:]])
                 if not sig.any():
-                    print >> sys.stderr, "nope 1"
+                    sys.stderr.write("No Signal found - please check signal format\n")
                     continue
                 sig = scale_outliers(sig, args)
-                sig = sklearn.preprocessing.scale(sig,
+                if args.scale == "zscale":
+                    sig = sklearn.preprocessing.scale(sig,
                                                   axis=0,
                                                   with_mean=True,
                                                   with_std=True,
                                                   copy=True)
+                elif args.scale == "medmad":
+                    arr = np.ma.array(sig).compressed()
+                    med = np.median(arr)
+                    mad = np.median(np.abs(arr - med))
+                    scaled_mad = mad * 1.4826
+                    mad_sig = []
+                    for i in sig:
+                        mad_sig.append((i - med) / scaled_mad)
+                    sig = np.array(mad_sig)
+                else:
+                    sys.stderr.write("unknown scale parameter: {}\n".format(args.scale))
+                    sys.exit()
 
                 # Do the search
-
-                if args.segs and args.adapt:
-                    if fast5 in segments:
-                        get_adapter_2(args, sig, adapter, segments[fast5], fast5)
-                    else:
-                        get_adapter(args, sig, adapter, fast5)
-                elif args.adapt:
-                    get_adapter(args, sig, adapter, fast5)
                 if args.model:
-                    get_region(args, sig, model, fast5)
+                    get_region_multi(args, sig, model, m_order, fast5, read_ID, args.slope, args.intercept, args.std_const, L)
+                if args.fasta_input:
+                    get_region_multi(args, sig, model, m_order, fast5, read_ID, args.slope, args.intercept, args.std_const, L)
 
     else:
-        print >> sys.stderr, "Unknown file or path input"
+        sys.stderr.write("Unknown file or path input")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -272,23 +334,25 @@ def process_fast5(path):
     '''
     # open fast5 file
     squig = []
+    readID = ""
     try:
         hdf = h5py.File(path, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():fast5 file failed to open: {}'.format(path)
+        sys.stderr.write("process_fast5():fast5 file failed to open: {}\n".format(path))
         squig = []
-        return squig
+        return squig, readID
     # extract raw signal
     try:
-        c = hdf['Raw/Reads'].keys()
+        c = list(hdf['Raw/Reads'].keys())
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             squig.append(int(col))
+        readID = hdf['Raw/Reads/'][c[0]].attrs['read_id']
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():failed to extract events or fastq from', path
+        sys.stderr.write("process_fast5():failed to extract events or fastq from: {}\n".format(path))
         squig = []
-    return squig
+    return squig, readID
 
 
 def read_synth_model(filename):
@@ -296,234 +360,167 @@ def read_synth_model(filename):
     read squiggle data from scrappie, old and new version, ready for dtw
     '''
     dic = {}
-    with open(filename, 'r') as r:
+    m_order = []
+    L = 0
+    L_list = []
+    with open(filename, 'rt') as r:
         for l in r:
             l = l.strip('\n')
             if l[0] == '#':
+                if L != 0:
+                    L_list.append(L)
+                L = 0
                 name = l[1:]
                 dic[name] = []
+                m_order.append(name)
             elif l[:3] == "pos":
                 continue
             else:
+                L += 1
                 l = l.split()
                 dic[name] = dic[name] + [float(l[2])] * int(round(float(l[4])))
-    # print >> sys.stderr, len(dic['adapter'])
-    return dic
+        L_list.append(L)
+    return dic, m_order, L_list
+
+
+def convert_fasta(filename, mod):
+    '''
+    use scrappie to convert fasta sequences to dic of signals
+    '''
+    dic = {}
+    m_order = []
+    L_list = [] # lengths same order as m_order
+    with open(filename, 'r') as r:
+        for l in r:
+            l = l.strip('\n')
+            if l:
+                if l[0] == ">":
+                    name = l[1:]
+                    dic[name] = []
+                    # retain order from fasta file
+                    m_order.append(name)
+                    continue
+                else:
+                    L_list.append(len(l))
+                    signal = scrappy.sequence_to_squiggle(l, model=mod).data(as_numpy=True, sloika=False)
+                    for i in signal:
+                        dwell =  int(round(math.exp(-i[2])))
+                        dic[name] = dic[name] + [i[0]] * dwell
+    return dic, m_order, L_list
 
 
 def read_bait_model(filename):
     '''
-    read baited signal file - Not currently in use
+    read baited model signal file - name \t kmer length \t signal....
     '''
     dic = {}
+    m_order = []
+    L_list = [] # lengths same order as m_order
     if filename.endswith('.gz'):
         f_read = dicSwitch('gz')
     else:
         f_read = dicSwitch('norm')
-    with f_read(filename, 'rb') as s:
-        if filename.endswith('.gz'):
-            s = io.BufferedReader(s)
+    with f_read(filename, 'rt') as s:
         for l in s:
             l = l.strip('\n')
             l = l.split('\t')
             name = l[0]
-            # modify the l[6:] to the column the data starts...little bit of variability here.
+            L = int(l[1])
+            # modify the l[3:] to the column the data starts...little bit of variability here.
             sig = np.array([float(i) for i in l[3:]], dtype=float)
             dic[name] = sig
-    return dic
+    return dic, m_order, L_list
 
 
-def get_baits(args, sig, start, end, adapter_pos):
-    """
-    logic to get baits from candidate read by adjusting bountaries, and locking
-    in a section to be pushed to a file
-    Not currently in use
-    """
-    # loop on key press to modify boundaries and Visualise
-
-    # exit method
-
-    # accepty mods and return output
-
-    return
-
-
-def get_segs(segfile):
-    '''
-    create segment dic from segmenter output
-    '''
-    dic = {}
-    with open(segfile, 'r') as f2:
-        for l in f2:
-            l = l.strip('\n')
-            l = l.split()
-            segs = l[1].split(',')
-            dic[l[0]] = [int(segs[0]), int(segs[1])]
-    return dic
-
-
-def get_adapter(args, sig, adapter, fast5):
-    '''
-    Find adapter in signal using model/bait
-    Call segmenter for Stall?
-    '''
-    pos = []
-    name = adapter.keys()[0]
-    # make this an argument variable
-    sig_search = sig[:800]
-    # seg = segmenter_call() # sig[seg[1]:]
-    dist, cost, path = dtw_subsequence(adapter[name], sig_search)
-    start = path[1][0]
-    end = path[1][-1]
-
-    if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
-    else:
-        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
-    if args.view:
-        view_adapter(sig, start, end)
-
-
-
-def get_adapter_2(args, sig, adapter, segs, fast5):
-    '''
-    Find adapter in signal using model/bait
-    Call segmenter for Stall?
-    '''
-    pos = []
-    name = adapter.keys()[0]
-    # make this an argument variable
-    sig_search = sig[segs[1]:segs[1] + 800]
-    # seg = segmenter_call() # sig[seg[1]:]
-    dist, cost, path = dtw_subsequence(adapter[name], sig_search)
-    start = path[1][0] + segs[1]
-    end = path[1][-1] + segs[1]
-
-    if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
-    else:
-        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Stall", start - segs[1], "Length:", end - start
-    if args.view:
-        view_adapter(sig, start, end, s=segs)
-
-
-def view_adapter(sig, start, end, s=False):
-    '''
-    Visualise adapter position in Signal
-    '''
-
-    fig = plt.figure(1)
-    #fig.subplots_adjust(hspace=0.1, wspace=0.01)
-    ax = fig.add_subplot(111)
-
-    ax.axvline(x=start, color='m')
-    ax.axvline(x=end, color='m')
-    if s:
-        ax.axvline(x=s[0], color='b')
-        ax.axvline(x=s[1], color='b')
-        ax.axvline(x=s[1] + 800, color='r')
-    else:
-        ax.axvline(x=800, color='r')
-
-    plt.plot(sig, color='grey')
-    plt.show()
-    plt.clf()
-
-
-def test_adapter(adapter_dist):
-    '''
-    look at positions of adapter and test distance from stall seg
-    NOT USED ATM
-    '''
-    dist = 200
-    if adapter_dist <= dist:
-        return True
-    else:
-        return False
-
-
-def get_region(args, sig, model, fast5):
+def get_region_multi(args, sig, model, m_order, fast5, readID, m, b, std, L):
     '''
     Find any region - simple demonstration version for 1 model
     '''
-    pos = []
-    name = model.keys()[0]
-    # seg = segmenter_call() # sig[seg[1]:]
-    dist, cost, path = dtw_subsequence(model[name], sig)
-    start = path[1][0]
-    end = path[1][-1]
-    if args.sig_extract:
-        print "{}\t{}\t{}\t{}\t{}\t{}".format(fast5, start, end, dist, end - start, '\t'.join([str(i) for i in sig[start:end]]))
-    else:
-        print fast5, "Dist:", dist, "pos:",  start, ",", end, "Dist from Start", start, "Length:", end - start
-
-    if args.view:
-        # view_region(sig, start, end)
-        view_region(sig, start, end, cost, path, model)
+    c = 0
+    for name in m_order:
+        dist, cost, path = dtw_subsequence(model[name], sig)
+        start = path[1][0]
+        end = path[1][-1]
+        # y = mx + b
+        mod_mean = (m * L[c]) + b
+        mod_stdev =  mod_mean * std
+        Z = (dist - mod_mean) / mod_stdev
+        p_value = st.norm.cdf(Z)
+        hit_P = (1-p_value) * 100
+        if args.sig_extract:
+            print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(fast5, readID, name, start, end, end - start, dist, mod_mean, mod_stdev, Z, p_value, hit_P, '\t'.join([str(i) for i in sig[start:end]])))
+        else:
+            print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(fast5, readID, name, start, end, end - start, dist, mod_mean, mod_stdev, Z, p_value, hit_P))
+        c += 1
+        if args.view:
+            view_region(sig, start, end, cost, path, model, dist, readID)
     return
 
 
-
-def view_region(sig, start, end, cost, path, model, s=False):
+def view_region(sig, start, end, cost, path, model, dist, readID):
     '''
     Visualise model position in Signal
     '''
-    name = model.keys()[0]
-    # fig = plt.figure(1)
-    # #fig.subplots_adjust(hspace=0.1, wspace=0.01)
-    # ax = fig.add_subplot(111)
-    #
-    # ax.axvline(x=start, color='m')
-    # ax.axvline(x=end, color='m')
-    # if s:
-    #     ax.axvline(x=s[0], color='b')
-    #     ax.axvline(x=s[1], color='b')
-    #
-    # plt.plot(sig, color='grey')
+    name = list(model.keys())[0]
+    fig = plt.figure(1)
+    fig.suptitle("readID: {}".format(readID), fontsize=16)
 
-    fig = plt.figure()
-    fig.subplots_adjust(hspace=0.5, wspace=0.01)
-    ax1 = fig.add_subplot(211)
-    plt.plot(sig, color='grey')
-
+    ax1 = fig.add_subplot(221)   #top left
     ax1.axvline(x=start, color='m')
     ax1.axvline(x=end, color='m')
 
-    # plt.xlabel(name)
-    plt.ylabel("pA")
-
-    ax2 = fig.add_subplot(212)
-    found_sig = sig[start:end+1]
-    plt.plot(found_sig, color='orange')
-    plt.plot(model[name], color='blue')
+    plt.plot(sig, color='grey')
+    plt.ylabel("Current (raw)")
 
     # fig = plt.figure(2)
     # ax = fig.add_subplot(111)
     # plot1 = plt.imshow(cost.T, origin='lower', cmap=cm.hot, interpolation='nearest')
     # plot2 = plt.plot(path[0], path[1], 'w')
-    # xlim = ax.set_xlim((-0.5, cost.shape[0]-0.5))
-    # ylim = ax.set_ylim((-0.5, cost.shape[1]-0.5))
+    # xlim = ax2.set_xlim((-0.5, cost.shape[0]-0.5))
+    # ylim = ax2.set_ylim((-0.5, cost.shape[1]-0.5))
     # # plt.subplots_adjust(bottom=0.1, right=0.8, top=0.9)
-    # # cax = plt.axes([0.85, 0.1, 0.075, 0.8])
-    # # plt.colorbar(cax=cax)
-    #
+    # cax = plt.axes([0.85, 0.1, 0.075, 0.8])
+    # plt.colorbar(cax=cax)
+
     # fig = plt.figure(3)
+    ax2 = fig.add_subplot(222)   #top right
     # ax = fig.add_subplot(111)
-    # plt.plot(sig[start:end], color='grey')
-    # name = model.keys()[0]
-    # plt.plot(model[name], color='blue')
-    #
+    plt.plot(sig[start:end], color='grey')
+    plt.plot(model[name], color='blue')
+    grey_patch = mpatches.Patch(color='grey', label='raw signal')
+    blue_patch = mpatches.Patch(color='blue', label='model signal')
+    ax2.legend(handles=[grey_patch, blue_patch])
+
     # fig = plt.figure(4)
+    # ax3 = fig.add_subplot(213)   #bottom left
     # ax = fig.add_subplot(111)
     # plt.plot(sig[start:end], color='grey')
-    #
+
     # fig = plt.figure(5)
     # ax = fig.add_subplot(111)
     # name = model.keys()[0]
     # plt.plot(model[name], color='blue')
+    #
+    # fig = plt.figure(6)
+    ax3 = fig.add_subplot(223)   #bottom left
+    plt.plot(cost[-1,])
+    M = np.mean(cost[-1,])
+    S = np.std(cost[-1,])
+    bot = M - S
+    ax3.axhline(y=dist, color='r')
+    ax3.axhline(y=M, color='g')
+    ax3.axhline(y=bot, color='b')
+    plt.ylabel("distance score")
+    green_patch = mpatches.Patch(color='green', label='mean')
+    red_patch = mpatches.Patch(color='red', label='distance')
+    blue_patch = mpatches.Patch(color='blue', label='1 stdev')
+    ax3.legend(handles=[green_patch, red_patch, blue_patch])
+    # ax4 = fig.add_subplot(224)
+    # img=mpimg.imread('cappy.png')
+    # plt.imshow(img)
+
 
     plt.show()
-    plt.clf()
     plt.clf()
 
 
