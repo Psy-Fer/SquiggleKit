@@ -34,6 +34,8 @@ SquiggleKit tools were not made to be executable to allow for use with varying p
 
     git clone https://github.com/Psy-Fer/SquiggleKit.git
 
+Use pip for python 2 and pip3 for python 3. User environments may vary.
+
 for
 `fast5_fetcher.py`, `SquigglePull.py`, `segmenter.py`:
 
@@ -41,6 +43,7 @@ for
 - matplotlib
 - h5py
 - sklearn
+- ont_fast5_api
 
 ```
 pip install numpy h5py sklearn matplotlib
@@ -49,7 +52,25 @@ pip install numpy h5py sklearn matplotlib
 for `MotifSeq.py`:
 
 - all of the above
+- scipy
 - mlpy 3.5.0 (don't use pip for this)
+- scrappie (pip doesn't have RNA models)
+
+```
+pip install scipy scrappie
+```
+
+for RNA models, install python bindings manually. Python3 only.
+
+    git clone https://github.com/nanoporetech/scrappie.git
+    cd scrappie
+    cd python
+    pip install -r requirements
+    python3 setup.py install
+
+You may need to uninstall the pypi wheel first with: (may need to run a few times)
+
+    pip3 uninstall scrappie
 
 
 #### Installing mlpy:
@@ -72,7 +93,7 @@ then install gnu-tar with:
 
     brew install gnu-tar
 
-#### Building the index
+#### Building the index (not required for multi_fast5)
 
 How the index is built depends on which file structure you are using. It will work with both tarred and un-tarred file structures. Tarred is preferred. (zip and other archive methods are being investigated)
 
@@ -155,44 +176,33 @@ Use `f` to full screen a plot, and `ctrl+w` to close a plot and move to the next
 
 ### MotifSeq
 
-**Nanopore adapter identification**
-
-Building an adapter model:
-
-    scrappie squiggle adapter.fa > adapter.model
-
-Identify stalls in signal using segmenter:
-
-    python segmenter.py -s signals.tsv.gz -ku -j 100 > signals_stall_segments.tsv
-
-Identifying nanopore adapters in signal up stream of identified stalls from segmenter:
-
-    python MotifSeq.py -s signals.tsv.gz --segs signals_stall_segments.tsv -a adapter.model > signals_adapters.tsv
-
-
 **Find kmer motif:**
 
-Building an adapter model:
 
-fasta format for scrappie:
+
+fasta format for model:
+
+>my_kmer.fa
 
     >my_kmer_name
     ATCGATCGCTATGCTAGCATTACG
 
-Make the model from scrappie (available from ONT [here](https://github.com/nanoporetech/scrappie) ):
+find the best match to that k-mer in the signal:
 
-    scrappie squiggle my_kmer.fa > scrappie_kmer.model
-
-find the best match to that kmer in the signal:
-
-    python MotifSeq.py -s signals.tsv -m scrappie_kmer.model > signals_kmer.tsv
+    python MotifSeq.py -s signals.tsv -i my_kmer.fa > signals_kmer.tsv
 
 <p align="left"><img src="img/MotifSeq_fig.jpg" alt="MotifSeq" width="100%" height="100%"></p>
+
+## Limitations
+
+k-mer length should not really be below 12nt, below this things get hairy based on modelling
+
+The p-values and hit probabilities provided are based on loose modelling of negative background scores for a number of k-mers. It is currently only modelled on R9.4 model, not R10 or RNA.
 
 
 ## Acknowledgements
 
-I would like to thank the members of my lab, Shaun Carswell, Kirston Barton, Hasindu Gamaarachchi, Kai Martin, Tansel Ersavas, and Martin Smith, from the Genomic Technologies team from the [Garvan Institute](https://www.garvan.org.au/) for their feedback on the development of these tools.
+I would like to thank the members of my lab, Shaun Carswell, Kirston Barton, Hasindu Gamaarachchi, Kai Martin, Tansel Ersavas, Brent Bevear, Jillian Hammond, and Martin Smith, from the Genomic Technologies team from the [Garvan Institute](https://www.garvan.org.au/) for their feedback on the development of these tools.
 
 ## License
 
