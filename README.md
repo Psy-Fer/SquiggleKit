@@ -53,24 +53,12 @@ for `MotifSeq.py`:
 
 - all of the above
 - scipy
+- scrappie
 - mlpy 3.5.0 (don't use pip for this)
-- scrappie (pip doesn't have RNA models)
 
 ```
 pip install scipy scrappie
-```
-
-for RNA models, install python bindings manually. Python3 only.
-
-    git clone https://github.com/nanoporetech/scrappie.git
-    cd scrappie
-    cd python
-    pip install -r requirements
-    python3 setup.py install
-
-You may need to uninstall the pypi wheel first with: (may need to run a few times)
-
-    pip3 uninstall scrappie
+``''
 
 
 #### Installing mlpy:
