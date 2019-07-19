@@ -54,18 +54,26 @@ for `MotifSeq.py`:
 - all of the above
 - scipy
 - scrappie
-- mlpy 3.5.0 (don't use pip for this)
+- mlpy 3.5.0 (only use pip3 in python 3 - see below)
 
 ```
 pip install scipy scrappie
-``''
+```
 
 
 #### Installing mlpy:
 
+
+##### Python2
+
 - Download the [Files](https://sourceforge.net/projects/mlpy/files/)
 - Install [Instructions](http://mlpy.sourceforge.net/docs/3.5/install.html)
 
+##### Python3
+
+```
+pip3 install machine-learning-py
+```
 
 
 
