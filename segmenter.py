@@ -63,7 +63,7 @@ def main():
                         help="Allowable error in segment algorithm")
     parser.add_argument("-c", "--corrector", type=int, default=50,
                         help="Window size for increasing total error correction - better long segment detection")
-    parser.add_argument("-w", "--window", type=int, default=200,
+    parser.add_argument("-w", "--window", type=int, default=150,
                         help="Minimum segment window size to be detected")
     parser.add_argument("-d", "--seg_dist", type=int, default=50,
                         help="Maximum distance between 2 segments to be merged into 1")
