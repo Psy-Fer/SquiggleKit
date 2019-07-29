@@ -4,7 +4,22 @@
 
 **Full documentation:** https://psy-fer.github.io/SquiggleKitDocs/
 
+**publication:** [SquiggleKit: A toolkit for manipulating nanopore signal data](https://doi.org/10.1093/bioinformatics/btz586)
+
 **Pre-print:** [SquiggleKit: A toolkit for manipulating nanopore signal data](https://doi.org/10.1101/549741)
+
+
+## Coming changes
+
+**Fast5_fetcher:** merge single files into multi-fast5 files
+
+**SquigglePull:** python3, read from multi-fast5
+
+**SquigglePlot:** python3, read from multi-fast5, image size args, arg clean-up
+
+**Segmenter:** dynamic file formats and more stability
+
+**MotifSeq:** Improved background modelling, custom modelling, RNA specific tools, custom alignment methods
 
 ## Overview
 
