@@ -109,11 +109,12 @@ def main():
         sys.exit(1)
 
     if args.verbose:
-        print >> sys.stderr, "Verbose mode on. Starting timer"
+        sys.stderr.write("Verbose mode on. Starting timer")
         start_time = time.time()
 
 
     # process fast5 files given top level path
+    # This should work for multi-fast5 too, push detect into extract_f5()
     for dirpath, dirnames, files in os.walk(args.path):
         for fast5 in files:
             if fast5.endswith('.fast5'):
@@ -122,22 +123,22 @@ def main():
                 # extract data from file
                 data = extract_f5(fast5_file, args)
                 if not data:
-                    print >> sys.stderr, "main():data not extracted. Moving to next file"
+                    sys.stderr.write("main():data not extracted. Moving to next file")
                     continue
 
                 region = pull_target(data, args)
-                
+
 
                 if not region:
-                    print >> sys.stderr, "main():Region not found. Moving to next file"
+                    sys.stderr.write("main():Region not found. Moving to next file")
                     continue
 
                 if args.event:
                     ar = []
                     for i in region[2]:
                         ar.append(str(i))
-                    print '{}\t{}\t{}\t{}\t{}'.format(
-                        fast5, data['readID'], region[0], region[1], '\t'.join(ar))
+                    print('{}\t{}\t{}\t{}\t{}'.format(
+                        fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
                 elif args.raw:
                     if args.pA_convert:
                         # convert signal to pA
@@ -145,24 +146,24 @@ def main():
                         ar = []
                         for i in pA_sig:
                             ar.append(str(i))
-                        print '{}\t{}\t{}\t{}\t{}'.format(
-                                fast5, data['readID'], region[0], region[1], '\t'.join(ar))
+                        print('{}\t{}\t{}\t{}\t{}'.format(
+                                fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
                     elif args.meth:
                         ar = []
                         for i in region[2]:
                             ar.append(str(i))
-                        print '{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(fast5, data['readID'],
+                        print('{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(fast5, data['readID'],
                                 data['digitisation'], data['offset'], data['range'],
-                                data['sampling_rate'], '\t'.join(ar))
+                                data['sampling_rate'], '\t'.join(ar)))
                     else:
                         ar = []
                         for i in region[2]:
                             ar.append(str(i))
-                        print '{}\t{}\t{}\t{}\t{}'.format(
-                            fast5, data['readID'], region[0], region[1], '\t'.join(ar))
+                        print('{}\t{}\t{}\t{}\t{}'.format(
+                            fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
     if args.verbose:
         end_time = time.time() - start_time
-        print >> sys.stderr, "Time taken:", end_time
+        sys.stderr.write("Time taken:", end_time)
 
 
 def extract_f5(filename, args, batch=False):
@@ -194,7 +195,7 @@ def extract_f5(filename, args, batch=False):
         hdf = h5py.File(filename, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'extract_fast5():fast5 file failed to open: {}'.format(filename)
+        sys.stderr.write("extract_fast5():fast5 file failed to open: {}".format(filename))
         f5_dic = {}
         return f5_dic
 
@@ -213,7 +214,7 @@ def extract_f5(filename, args, batch=False):
 
         except:
             traceback.print_exc()
-            print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
+            sys.stderr.write("extract_fast5():failed to extract events or fastq from {}".format(filename))
             f5_dic = {}
 
     # extract raw signal
@@ -233,7 +234,7 @@ def extract_f5(filename, args, batch=False):
 
             except:
                 traceback.print_exc()
-                print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
+                sys.stderr.write("extract_fast5():failed to extract events or fastq from {}".format(filename))
                 f5_dic = {}
 
         else:
@@ -246,12 +247,12 @@ def extract_f5(filename, args, batch=False):
 
             except:
                 traceback.print_exc()
-                print >> sys.stderr, 'extract_fast5():failed to extract events or fastq from', filename
+                sys.stderr.write("extract_fast5():failed to extract events or fastq from {}".format(filename))
                 f5_dic = {}
 
     # signal flag not set
     else:
-        print >> sys.stderr, "extract_fast5():Please choose 'raw' or 'events' for the signal flag."
+        sys.stderr.write("extract_fast5():Please choose 'raw' or 'events' for the signal flag.")
 
     return f5_dic
 
@@ -309,13 +310,13 @@ def pull_target(data, args, min_length=50, paf=None):
         region.append(signal)
 
     else:
-        print >> sys.stderr, "pull_target():target_type not recognised:", target_type
+        sys.stderr.write("pull_target():target_type not recognised: {}".format(target_type))
         return default
 
     if region:
         return region
     else:
-        print >> sys.stderr, "pull_target():Something went wrong. Region not found"
+        sys.stderr.write("pull_target():Something went wrong. Region not found")
         return default
 
 
@@ -331,7 +332,7 @@ def scale_data(data):
                                                   copy=True)
     except:
         traceback.print_exc()
-        print >> sys.stderr, "scale_data():Something went wrong, failed to scale data"
+        sys.stderr.write("scale_data():Something went wrong, failed to scale data")
         return 0
     return scaled_data
 

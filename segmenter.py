@@ -113,7 +113,7 @@ def main():
                 fast5 = l[-1]
                 sig = process_fast5(path)
                 if not sig:
-                    print >> sys.stderr, "main():data not extracted. Moving to next file", fast5
+                    sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5))
                     continue
                 # cut signal based on -n flag
                 sig = sig[:args.Num]
@@ -122,7 +122,7 @@ def main():
                 # Do the segment detection
                 segs = get_segs(sig, args)
                 if not segs:
-                    print >> sys.stderr, "no segments found:", fast5
+                    sys.stderr.write("no segments found: {}".format(fast5))
                     continue
                 # run tests on segments based on user question
                 if args.test:
@@ -150,7 +150,7 @@ def main():
                     # extract data from file
                     sig = process_fast5(fast5_file)
                     if not sig:
-                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5
+                        sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5))
                         continue
                     # cut signal based on -n flag
                     sig = sig[:args.Num]
@@ -160,7 +160,7 @@ def main():
                     # Do the segment detection
                     segs = get_segs(sig, args)
                     if not segs:
-                        print >> sys.stderr, "no segments found:", fast5
+                        sys.stderr.write("no segments found: {}".format(fast5))
                         continue
                     # run tests on segments based on user question
                     if args.test:
@@ -199,7 +199,7 @@ def main():
                 # TODO: make this based on column header
                 sig = np.array([int(i) for i in l[4:]], dtype=int)
                 if not sig.any():
-                    print >> sys.stderr, "No signal found in file:", args.signal, fast5
+                    sys.stderr.write("No signal found in file: {} {}".format(args.signal, fast5))
                     continue
                 # cut signal based on -n flag
                 sig = sig[:args.Num]
@@ -208,13 +208,13 @@ def main():
                 # Do the segment detection
                 segs = get_segs(sig, args)
                 if not segs:
-                    print >> sys.stderr, "no segments found:", fast5
+                    sys.stderr.write("no segments found: {}".format(fast5))
                     continue
                 # run tests on segments based on user question
                 if args.test:
                     segs = test_segs(segs, args)
                     if not segs:
-                        print >> sys.stderr, "nope 3"
+                        sys.stderr.write("no segs for testing: {}".format(fast5))
                         continue
                 # output sections
                 out = []
@@ -228,11 +228,11 @@ def main():
                     view_segs(segs, sig, args)
 
     else:
-        print >> sys.stderr, "Unknown file or path input"
+        sys.stderr.write("Unknown file or path input")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    print >> sys.stderr, "Done"
+    sys.stderr.write("Done")
 
 
 def dicSwitch(i):
@@ -266,7 +266,7 @@ def process_fast5(path):
         hdf = h5py.File(path, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():fast5 file failed to open: {}'.format(path)
+        sys.stderr.write("process_fast5():fast5 file failed to open: {}".format(path))
         squig = []
         return squig
     # extract raw signal
@@ -276,7 +276,7 @@ def process_fast5(path):
             squig.append(int(col))
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():failed to extract events or fastq from', path
+        sys.stderr.write("process_fast5():failed to extract events or fastq from: {}".format(path))
         squig = []
     return squig
 
@@ -365,15 +365,15 @@ def test_segs(segs, args):
         # Check that the first segement is close to beginning for stall
         if args.stall:
             if segs[0][0] > args.stall_start:
-                print >> sys.stderr, "start seg too late!"
+                sys.stderr.write("start seg too late!")
                 return False
         # Check second segment distance for polyT
         if args.gap:
             if segs[1][0] > segs[0][1] + args.gap_dist:
-                print >> sys.stderr, "second seg too far!!"
+                sys.stderr.write("second seg too far!")
                 return False
     except:
-        print >> sys.stderr, "nope!"
+        sys.stderr.write("something went wrong test_segs()")
         traceback.print_exc()
 
     return segs

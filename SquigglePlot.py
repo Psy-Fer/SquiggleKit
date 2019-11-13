@@ -11,7 +11,7 @@ from matplotlib import rcParams
 # rcParams.update({'figure.autolayout': True})
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
-# matplotlib.rcParams['figure.figsize'] = [16.0, 12.0]
+# matplotlib.rcParams['figure.figsize'] = [18.0, 12.0]
 matplotlib.rcParams['figure.dpi'] = 80
 # matplotlib.rcParams['savefig.dpi'] = 300
 import numpy as np
@@ -77,13 +77,17 @@ def main():
         description="SquigglePlot - plotting the raw signal data")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-f", "--f5f",
-                       help="File list of fast5 paths")
+                       help="File list of fast5 paths - Single fast5 only")
     group.add_argument("-p", "--f5_path",
-                       help="Fast5 top dir")
+                       help="Fast5 top dir - including multifast5 files")
     group.add_argument("-s", "--signal",
                        help="Extracted signal file from SquigglePull")
     group.add_argument("-i", "--ind",
                        help="Individual fast5 file")
+    parser.add_argument("-r", "--readID",
+                       help="Individual readID to extract from multifast5 file")
+    parser.add_argument("-m", "--multi",action="store_true",
+                       help="turn on multi-fast5 # depricate this and do better")
     parser.add_argument("--head", action="store_true",
                        help="Header present in signal or flat file")
     parser.add_argument("-n", "--Num",
@@ -167,19 +171,30 @@ def main():
             for fast5 in files:
                 if fast5.endswith('.fast5'):
                     fast5_file = os.path.join(dirpath, fast5)
-
-                    # extract data from file
-                    sig = process_fast5(fast5_file)
-                    if not sig:
-                        print >> sys.stderr, "main():data not extracted. Moving to next file", fast5_file
-                        continue
-                    if N:
-                        sig = sig[:N]
-                    elif N1 or N2:
-                        sig = sig[N1:N2]
-                    sig = np.array(sig, dtype=int)
-                    sig = scale_outliers(sig, args)
-                    view_sig(args, sig, fast5)
+                    if args.multi:
+                        sigs = get_multi_fast5_signal(args, fast5_file)
+                        for read in sigs:
+                            sig = sigs[read]
+                            if N:
+                                sig = sig[:N]
+                            elif N1 or N2:
+                                sig = sig[N1:N2]
+                            sig = np.array(sig, dtype=int)
+                            sig = scale_outliers(sig, args)
+                            view_sig(args, sig, read)
+                    else:
+                        # extract data from file
+                        sig = process_fast5(fast5_file)
+                        if not sig:
+                            sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5_file))
+                            continue
+                        if N:
+                            sig = sig[:N]
+                        elif N1 or N2:
+                            sig = sig[N1:N2]
+                        sig = np.array(sig, dtype=int)
+                        sig = scale_outliers(sig, args)
+                        view_sig(args, sig, fast5)
 
     elif args.signal:
         # signal file, gzipped, from squigglepull
@@ -201,8 +216,9 @@ def main():
                 # modify the l[6:] to the column the data starts...little bit of variability here.
                 sig = np.array([int(i) for i in l[4:]], dtype=int)
                 if not sig.any():
-                    print >> sys.stderr, "nope 1"
-                    continue
+                    sys.stderr.write("No signal found: {}".format(args.signal))
+                    parser.print_help(sys.stderr)
+                    sys.exit(1)
                 if N:
                     sig = sig[:N]
                 elif N1 or N2:
@@ -216,7 +232,7 @@ def main():
         # extract data from file
         sig = process_fast5(args.ind)
         if not sig:
-            print >> sys.stderr, "main():data not extracted.", args.ind
+            sys.stderr.write("main():data not extracted: {}".format(args.ind))
             parser.print_help(sys.stderr)
             sys.exit(1)
         if N:
@@ -228,11 +244,11 @@ def main():
         view_sig(args, sig, fast5)
 
     else:
-        print >> sys.stderr, "Unknown file or path input"
+        sys.stderr.write("Unknown file or path input")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    print >> sys.stderr, "Done"
+    sys.stderr.write("Done")
 
 
 def dicSwitch(i):
@@ -251,6 +267,48 @@ def scale_outliers(sig, args):
     return sig[k]
 
 
+def get_multi_fast5_signal(args, read_filename):
+    '''
+    open multi fast5 files and extract information
+    '''
+    signals = {}
+    f5_dic = read_multi_fast5(args, read_filename)
+    for read in f5_dic:
+        # get readID and signal
+        readID = f5_dic[read]['readID']
+        if args.readID:
+            if readID != args.readID:
+                continue
+        signal = f5_dic[read]['signal']
+
+        signals[readID] = signal
+    # return signal/signals
+    return signals
+
+def read_multi_fast5(args, filename):
+    '''
+    read multifast5 file and return data
+    '''
+    f5_dic = {}
+    with h5py.File(filename, 'r') as hdf:
+        for read in list(hdf.keys()):
+            f5_dic[read] = {'signal': [], 'readID': '', 'digitisation': 0.0,
+                            'offset': 0.0, 'range': 0.0, 'sampling_rate': 0.0}
+            try:
+                for col in hdf[read]['Raw/Signal'][()]:
+                    f5_dic[read]['signal'].append(int(col))
+
+                f5_dic[read]['readID'] = hdf[read]['Raw'].attrs['read_id'].decode()
+                f5_dic[read]['digitisation'] = hdf[read]['channel_id'].attrs['digitisation']
+                f5_dic[read]['offset'] = hdf[read]['channel_id'].attrs['offset']
+                f5_dic[read]['range'] = float("{0:.2f}".format(hdf[read]['channel_id'].attrs['range']))
+                f5_dic[read]['sampling_rate'] = hdf[read]['channel_id'].attrs['sampling_rate']
+            except:
+                traceback.print_exc()
+                sys.stderr.write("extract_fast5():failed to read readID: {}".format(read))
+    return f5_dic
+
+
 def process_fast5(path):
     '''
     open fast5 and extract raw signal
@@ -261,18 +319,18 @@ def process_fast5(path):
         hdf = h5py.File(path, 'r')
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():fast5 file failed to open: {}'.format(path)
+        sys.stderr.write('process_fast5():fast5 file failed to open: {}'.format(path))
         sig = []
         return sig
     # extract raw signal
     try:
         #b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
-        c = hdf['Raw/Reads'].keys()
+        c = list(hdf['Raw/Reads'].keys())
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             sig.append(int(col))
     except:
         traceback.print_exc()
-        print >> sys.stderr, 'process_fast5():failed to extract events or fastq from', path
+        sys.stderr.write('process_fast5():failed to extract events or fastq from: {}'.format(path))
         sig = []
     return sig
 

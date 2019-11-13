@@ -13,21 +13,12 @@ from mlpy import dtw_subsequence
 from matplotlib import rcParams
 rcParams['pdf.fonttype'] = 42
 rcParams['ps.fonttype'] = 42
-rcParams['figure.figsize'] = [12.0, 12.0]
+# rcParams['figure.figsize'] = [12.0, 12.0]
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.cm as cm
 # import matplotlib.image as mpimg
-import signal
 
-# Intercept ctrl-c, ctrl-\ and ctrl-z
-def signal_handler(signum, frame):
-    signal.signal(signum, signal.SIG_DFL)
-    os.kill(os.getpid(), signum)
-
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGQUIT, signal_handler)
-signal.signal(signal.SIGTSTP, signal_handler)
 
 '''
 
@@ -52,6 +43,7 @@ signal.signal(signal.SIGTSTP, signal_handler)
         - make callable from other scripts
         - Take any signal format based on headers
         - MultiFast5File support
+        - make readID a string with decode()
 
     -----------------------------------------------------------------------------
     MIT License
