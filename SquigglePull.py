@@ -84,10 +84,12 @@ def main():
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("-p", "--path",
                         help="Top directory path of fast5 files")
+    parser.add_argument("--multi", action="store_true",
+                        help="multi_fast5 files")
     parser.add_argument("-t", "--target",
-                        help="Target information as comma delimited string structured by format type")
+                        help="Target information as comma delimited string structured by format type - SOON TO BE DEPRICATED")
     parser.add_argument("-f", "--form", default="all", choices=["pos1", "all"],
-                        help="Format of target information")
+                        help="Format of target information - SOON TO BE DEPRICATED")
     group.add_argument("-r", "--raw", action="store_true",
                        help="Extract raw signal")
     group.add_argument("-e", "--event", action="store_true",
@@ -121,49 +123,55 @@ def main():
                 fast5_file = os.path.join(dirpath, fast5)
 
                 # extract data from file
-                data = extract_f5(fast5_file, args)
-                if not data:
-                    sys.stderr.write("main():data not extracted. Moving to next file")
-                    continue
-
-                region = pull_target(data, args)
-
-
-                if not region:
-                    sys.stderr.write("main():Region not found. Moving to next file")
-                    continue
-
-                if args.event:
-                    ar = []
-                    for i in region[2]:
-                        ar.append(str(i))
-                    print('{}\t{}\t{}\t{}\t{}'.format(
-                        fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
-                elif args.raw:
-                    if args.pA_convert:
-                        # convert signal to pA
-                        pA_sig = convert_to_pA(data)
+                if args.multi:
+                    data = read_multi_fast5(fast5_file)
+                    for read in data:
                         ar = []
-                        for i in pA_sig:
+                        for i in data[read]['raw']:
                             ar.append(str(i))
-                        print('{}\t{}\t{}\t{}\t{}'.format(
-                                fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
-                    elif args.meth:
-                        ar = []
-                        for i in region[2]:
-                            ar.append(str(i))
-                        print('{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(fast5, data['readID'],
-                                data['digitisation'], data['offset'], data['range'],
-                                data['sampling_rate'], '\t'.join(ar)))
-                    else:
+                        print('{}\t{}\t{}'.format(fast5, data[read]['readID'], '\t'.join(ar)))
+                else:
+                    data = extract_f5(fast5_file, args)
+                    if not data:
+                        sys.stderr.write("main():data not extracted. Moving to next file")
+                        continue
+                    region = pull_target(data, args)
+
+                    if not region:
+                        sys.stderr.write("main():Region not found. Moving to next file")
+                        continue
+
+                    if args.event:
                         ar = []
                         for i in region[2]:
                             ar.append(str(i))
                         print('{}\t{}\t{}\t{}\t{}'.format(
                             fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
+                    elif args.raw:
+                        if args.pA_convert:
+                            # convert signal to pA
+                            pA_sig = convert_to_pA(data)
+                            ar = []
+                            for i in pA_sig:
+                                ar.append(str(i))
+                            print('{}\t{}\t{}\t{}\t{}'.format(
+                                    fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
+                        elif args.meth:
+                            ar = []
+                            for i in region[2]:
+                                ar.append(str(i))
+                            print('{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(fast5, data['readID'],
+                                    data['digitisation'], data['offset'], data['range'],
+                                    data['sampling_rate'], '\t'.join(ar)))
+                        else:
+                            ar = []
+                            for i in region[2]:
+                                ar.append(str(i))
+                            print('{}\t{}\t{}\t{}\t{}'.format(
+                                fast5, data['readID'], region[0], region[1], '\t'.join(ar)))
     if args.verbose:
         end_time = time.time() - start_time
-        sys.stderr.write("Time taken:", end_time)
+        sys.stderr.write("Time taken: {}\n".format(end_time))
 
 
 def extract_f5(filename, args, batch=False):
@@ -202,15 +210,15 @@ def extract_f5(filename, args, batch=False):
     # extract event signal
     if args.event:
         try:
-            b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
-            c = hdf['Raw/Reads'].keys()
+            b = sorted([i for i in list(hdf['Analyses'].keys()) if i[0] == 'B'])[-1]
+            c = list(hdf['Raw/Reads'].keys())
             for col in hdf['Analyses'][b]['BaseCalled_template']['Events'][()]:
                 f5_dic['events'].append(float(col[0]))
 
             fq = hdf['Analyses'][b]['BaseCalled_template']['Fastq'][()
                                                                     ].split('\n')
             f5_dic['seq'] = fq
-            f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id']
+            f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id'].decode()
 
         except:
             traceback.print_exc()
@@ -221,12 +229,12 @@ def extract_f5(filename, args, batch=False):
     elif args.raw:
         if args.pA_convert or args.meth:
             try:
-                c = hdf['Raw/Reads'].keys()
+                c = list(hdf['Raw/Reads'].keys())
                 for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
                     f5_dic['raw'].append(int(col))
 
 
-                f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id']
+                f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id'].decode()
                 f5_dic['digitisation'] = hdf['UniqueGlobalKey/channel_id'].attrs['digitisation']
                 f5_dic['offset'] = hdf['UniqueGlobalKey/channel_id'].attrs['offset']
                 f5_dic['range'] = float("{0:.2f}".format(hdf['UniqueGlobalKey/channel_id'].attrs['range']))
@@ -239,11 +247,11 @@ def extract_f5(filename, args, batch=False):
 
         else:
             try:
-                c = hdf['Raw/Reads'].keys()
+                c = list(hdf['Raw/Reads'].keys())
                 for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
                     f5_dic['raw'].append(int(col))
 
-                f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id']
+                f5_dic['readID'] = hdf['Raw/Reads/'][c[0]].attrs['read_id'].decode()
 
             except:
                 traceback.print_exc()
@@ -254,6 +262,31 @@ def extract_f5(filename, args, batch=False):
     else:
         sys.stderr.write("extract_fast5():Please choose 'raw' or 'events' for the signal flag.")
 
+    return f5_dic
+
+def read_multi_fast5(filename):
+    '''
+    read multifast5 file and return data
+    '''
+    f5_dic = {}
+    with h5py.File(filename, 'r') as hdf:
+        for read in list(hdf.keys()):
+            f5_dic[read] = {'raw': [], 'events': [], 'seq': '', 'readID': '', 'digitisation': 0.0,
+                            'offset': 0.0, 'range': 0.0, 'sampling_rate': 0.0}
+
+
+            try:
+                for col in hdf[read]['Raw/Signal'][()]:
+                    f5_dic[read]['raw'].append(int(col))
+
+                f5_dic[read]['readID'] = hdf[read]['Raw'].attrs['read_id'].decode()
+                f5_dic[read]['digitisation'] = hdf[read]['channel_id'].attrs['digitisation']
+                f5_dic[read]['offset'] = hdf[read]['channel_id'].attrs['offset']
+                f5_dic[read]['range'] = float("{0:.2f}".format(hdf[read]['channel_id'].attrs['range']))
+                f5_dic[read]['sampling_rate'] = hdf[read]['channel_id'].attrs['sampling_rate']
+            except:
+                traceback.print_exc()
+                sys.stderr.write("extract_fast5():failed to read readID: {}".format(read))
     return f5_dic
 
 
