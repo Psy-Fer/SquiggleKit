@@ -36,6 +36,7 @@ import h5py
         - yaml/config file for multiple plots
         - Default plot settings rolled out tookit wide
         - light smoothing
+        - Update to handle pA scaled values with floats
 
     -----------------------------------------------------------------------------
     MIT License
@@ -345,7 +346,9 @@ def view_sig(args, sig, name, path=None):
     plt.autoscale()
     plt.title("Raw signal for:   {}".format(name))
     plt.xlabel("")
-    plt.ylabel("Current (pA)")
+    plt.ylabel("Current - Not scaled")
+    # if floats,
+    # plt.ylabel("Current (pA)")
 
 
     plt.plot(sig, color=args.plot_colour)
