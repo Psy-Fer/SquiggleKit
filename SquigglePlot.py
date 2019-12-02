@@ -139,13 +139,7 @@ def main():
         # file list of fast5 files.
         # fast5_name\tquality_score
         # not using the second column atm
-        if args.f5f.endswith('.gz'):
-            f_read = dicSwitch('gz')
-        else:
-            f_read = dicSwitch('norm')
-        with f_read(args.f5f, 'rb') as sz:
-            if args.f5f.endswith('.gz'):
-                sz = io.BufferedReader(sz)
+        with open(args.f5f, 'rt') as sz:
             for l in sz:
                 if head:
                     head = False
@@ -198,15 +192,9 @@ def main():
                         view_sig(args, sig, fast5)
 
     elif args.signal:
-        # signal file, gzipped, from squigglepull
+        # signal file, from squigglepull
         # testing
-        if args.signal.endswith('.gz'):
-            f_read = dicSwitch('gz')
-        else:
-            f_read = dicSwitch('norm')
-        with f_read(args.signal, 'rb') as sz:
-            if args.signal.endswith('.gz'):
-                sz = io.BufferedReader(sz)
+        with open(args.signal, 'rt') as sz:
             for l in sz:
                 if head:
                     head = False
@@ -215,7 +203,11 @@ def main():
                 l = l.split('\t')
                 fast5 = l[0]
                 # modify the l[6:] to the column the data starts...little bit of variability here.
-                sig = np.array([int(i) for i in l[4:]], dtype=int)
+            # sig = np.array([int(i) for i in l[4:]], dtype=int)
+                if "." in l[4]:
+                    sig = np.array([float(i) for i in l[4:]], dtype=float)
+                else:
+                    sig = np.array([int(i) for i in l[4:]], dtype=int)
                 if not sig.any():
                     sys.stderr.write("No signal found: {}".format(args.signal))
                     parser.print_help(sys.stderr)
@@ -240,6 +232,7 @@ def main():
             sig = sig[:N]
         elif N1 or N2:
             sig = sig[N1:N2]
+
         sig = np.array(sig, dtype=int)
         sig = scale_outliers(sig, args)
         view_sig(args, sig, fast5)
@@ -346,9 +339,12 @@ def view_sig(args, sig, name, path=None):
     plt.autoscale()
     plt.title("Raw signal for:   {}".format(name))
     plt.xlabel("")
-    plt.ylabel("Current - Not scaled")
-    # if floats,
-    # plt.ylabel("Current (pA)")
+    # print(sig.dtype)
+    # print(sig.dtype == float64)
+    if sig.dtype == float:
+        plt.ylabel("Current (pA)")
+    elif sig.dtype == int:
+        plt.ylabel("Current - Not scaled")
 
 
     plt.plot(sig, color=args.plot_colour)
