@@ -84,7 +84,7 @@ pip install scipy scrappie
 - Download the [Files](https://sourceforge.net/projects/mlpy/files/)
 - Install [Instructions](http://mlpy.sourceforge.net/docs/3.5/install.html)
 
-##### Python3
+##### Python3.6 (Python3.7 not working because of a cython/gsl issue)
 
 ```
 pip3 install machine-learning-py
