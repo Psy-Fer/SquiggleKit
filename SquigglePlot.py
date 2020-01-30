@@ -223,7 +223,12 @@ def main():
         # Do an OS detection here for windows (get from fast5_fetcher)
         fast5 = args.ind.split('/')[-1]
         # extract data from file
-        sig = process_fast5(args.ind)
+        sig=None
+        if args.multi:
+                sigs = get_multi_fast5_signal(args, args.ind)
+                sig = sigs[args.readID]
+        else:
+                sig = process_fast5(args.ind)
         if not sig:
             sys.stderr.write("main():data not extracted: {}".format(args.ind))
             parser.print_help(sys.stderr)
