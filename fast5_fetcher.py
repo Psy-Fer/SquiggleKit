@@ -106,6 +106,8 @@ def main():
     #                    help="Number of CPUs to use - TODO: NOT YET IMPLEMENTED")
     parser.add_argument("-z", "--pppp", action="store_true",
                         help="Print out tar commands in batches for further processing")
+    parser.add_argument("--move", action="store_true",
+                        help="Move (mv) instead of copy (cp) files. ***DANGER: USE AT OWN RISK***")
     args = parser.parse_args()
 
     # print help if no arguments given
@@ -473,8 +475,12 @@ def extract_file(args, path, filename):
             cmd = "tar -xf {} --transform='s/.*\///' -C {} {}".format(
                 path, save_path, filename)
     else:
-        cmd = "cp {} {}".format(filename, save_path)
-    subprocess.call(cmd, shell=True, executable='/bin/bash')
+        if args.move:
+            cmd = "mv {} {}".format(filename, save_path)
+        else:
+            cmd = "cp {} {}".format(filename, save_path)
+
+        subprocess.call(cmd, shell=True, executable='/bin/bash')
 
 
 if __name__ == '__main__':
