@@ -486,28 +486,35 @@ def get_filenames_multi_f5(seq_sum, ids):
         ids = set()
     head = True
     files = {}
+    f5_idx=1
+    r_idx=2
     if seq_sum.endswith('.gz'):
         f_read = dicSwitch('gz')
     else:
         f_read = dicSwitch('norm')
     with f_read(seq_sum, 'rt') as sz:
         for line in sz:
-            if head:
-                head = False
-                continue
             line = line.strip('\n')
             line = line.split()
+            if head:
+                head = False
+                for i in range(len(line)):
+                    if line[i] == "filename_fast5":
+                        f5_idx=i
+                    elif line[i] == "read_id":
+                        r_idx=i
+                continue
             # add 1D^2 logic here
             if ss_only:
-                if line[0] not in files:
-                    files[line[0]] = []
-                files[line[0]].append(line[1])
-                ids.add(line[1])
+                if line[f5_idx] not in files:
+                    files[line[f5_idx]] = []
+                files[line[f5_idx]].append(line[r_idx])
+                ids.add(line[r_idx])
             else:
-                if line[1] in ids:
-                    if line[0] not in files:
-                        files[line[0]] = []
-                    files[line[0]].append(line[1])
+                if line[2] in ids:
+                    if line[f5_idx] not in files:
+                        files[line[f5_idx]] = []
+                    files[line[f5_idx]].append(line[r_idx])
     return files, ids
 
 
