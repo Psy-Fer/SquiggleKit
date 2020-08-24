@@ -477,7 +477,6 @@ def get_filenames(seq_sum, ids):
 def get_filenames_multi_f5(seq_sum, ids):
     '''
     Match read ids with seq_sum to pull file names when packed in multifast5 format
-    columns keep changing....fix this
     '''
     # for when using seq_sum for filtering, and not fq,paf,flat
     ss_only = False
