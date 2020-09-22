@@ -76,6 +76,7 @@ def main():
             read = read.strip('\n')
             read = read.split('\t')
             f5 = read[0]
+            readID = read[1]
             sig = scale_outliers(np.array([int(i) for i in read[args.start_col:]], dtype=int))
 
             s = pd.Series(sig)
@@ -122,7 +123,7 @@ def main():
                 if b - a < lo_thresh:
                     continue
                 x, y = a - 1000, b - 1000
-                print "{}\t{}\t{}\t{}".format(f5, read_dic[f5], x, y)
+                print "{}\t{}\t{}\t{}".format(f5, readID, x, y)
                 break
 
 
