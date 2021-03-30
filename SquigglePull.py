@@ -96,7 +96,7 @@ def main():
                        help="Extract event signal - SOON TO BE DEPRICATED")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Engage higher output verbosity")
-    parser.add_argument("-s", "--scale", default="None", choices=["zscale", "medmad"],
+    parser.add_argument("-s", "--scale", default=None, choices=["zscale", "medmad"],
                        help="scaling/normalisation factor to use")
     parser.add_argument("-c", "--pA_convert", action="store_true",
                         help="Convert raw signal to pA, for comparisons")
@@ -139,7 +139,7 @@ def main():
                             for i in pA_sig:
                                 ar.append(str(i))
                             print('{}\t{}\t{}'.format(
-                                    fast5, data['readID'], '\t'.join(ar)))
+                                    fast5, data[read]['readID'], '\t'.join(ar)))
                         else:
                             signal = data[read]['raw']
                             if args.scale:
