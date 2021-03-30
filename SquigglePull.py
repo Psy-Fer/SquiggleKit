@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 import h5py
 import time
-import sklearn.preprocessing
+# import sklearn.preprocessing
 
 '''
     SquigglePull
@@ -96,8 +96,8 @@ def main():
                        help="Extract event signal - SOON TO BE DEPRICATED")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Engage higher output verbosity")
-    parser.add_argument("-s", "--scale", action="store_true",
-                        help="Scale signal output for comparison")
+    parser.add_argument("-s", "--scale", default="None", choices=["zscale", "medmad"],
+                       help="scaling/normalisation factor to use")
     parser.add_argument("-c", "--pA_convert", action="store_true",
                         help="Convert raw signal to pA, for comparisons")
     parser.add_argument("-m", "--meth", action="store_true",
@@ -114,6 +114,9 @@ def main():
         sys.stderr.write("Verbose mode on. Starting timer")
         start_time = time.time()
 
+    if args.scale == "zscale":
+        import sklearn.preprocessing
+
 
     # process fast5 files given top level path
     # This should work for multi-fast5 too, push detect into extract_f5()
@@ -126,10 +129,26 @@ def main():
                 if args.multi:
                     data = read_multi_fast5(fast5_file)
                     for read in data:
-                        ar = []
-                        for i in data[read]['raw']:
-                            ar.append(str(i))
-                        print('{}\t{}\t{}'.format(fast5, data[read]['readID'], '\t'.join(ar)))
+                        if args.pA_convert:
+                            # convert signal to pA
+                            pA_sig = convert_to_pA(data[read])
+                            if args.scale:
+                                sig = np.array(pA_sig)
+                                pA_sig = scale_data(args, sig)
+                            ar = []
+                            for i in pA_sig:
+                                ar.append(str(i))
+                            print('{}\t{}\t{}'.format(
+                                    fast5, data['readID'], '\t'.join(ar)))
+                        else:
+                            signal = data[read]['raw']
+                            if args.scale:
+                                sig = np.array(data[read]['raw'])
+                                signal = scale_data(args, sig)
+                            ar = []
+                            for i in signal:
+                                ar.append(str(i))
+                            print('{}\t{}\t{}'.format(fast5, data[read]['readID'], '\t'.join(ar)))
                 else:
                     data = extract_f5(fast5_file, args)
                     if not data:
@@ -321,7 +340,7 @@ def pull_target(data, args, min_length=50, paf=None):
         else:
             signal = np.array(data['events'][target[0]:target[1]])
         if args.scale:
-            signal = scale_data(signal)
+            signal = scale_data(args, signal)
 
         # region.append(data['readID'])
         region.append(target)
@@ -334,7 +353,7 @@ def pull_target(data, args, min_length=50, paf=None):
         else:
             signal = np.array(data['events'])
         if args.scale:
-            signal = scale_data(signal)
+            signal = scale_data(args, signal)
         target = str(len(signal))
 
         #region.append(data['readID'])
@@ -353,20 +372,44 @@ def pull_target(data, args, min_length=50, paf=None):
         return default
 
 
-def scale_data(data):
+def scale_data(args, sig):
     '''
     Scale shift and scale for comparisons
     '''
+    # try:
+        # scaled_data = sklearn.preprocessing.scale(data,
+        #                                           axis=0,
+        #                                           with_mean=True,
+        #                                           with_std=True,
+        #                                           copy=True)
+    # except:
+    #     traceback.print_exc()
+    #     sys.stderr.write("scale_data():Something went wrong, failed to scale data")
+    #     return 0
     try:
-        scaled_data = sklearn.preprocessing.scale(data,
-                                                  axis=0,
-                                                  with_mean=True,
-                                                  with_std=True,
-                                                  copy=True)
+        if args.scale == "zscale":
+            scaled_data = sklearn.preprocessing.scale(sig,
+                                          axis=0,
+                                          with_mean=True,
+                                          with_std=True,
+                                          copy=True)
+        elif args.scale == "medmad":
+            arr = np.ma.array(sig).compressed()
+            med = np.median(arr)
+            mad = np.median(np.abs(arr - med))
+            scaled_mad = mad * 1.4826
+            mad_sig = []
+            for i in sig:
+                mad_sig.append((i - med) / scaled_mad)
+            scaled_data = np.array(mad_sig)
+        else:
+            sys.stderr.write("unknown scale parameter: {}\n".format(args.scale))
+            sys.exit()
     except:
         traceback.print_exc()
         sys.stderr.write("scale_data():Something went wrong, failed to scale data")
         return 0
+
     return scaled_data
 
 
