@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 import h5py
 import time
-# import sklearn.preprocessing
+import sklearn.preprocessing
 
 '''
     SquigglePull
@@ -114,8 +114,8 @@ def main():
         sys.stderr.write("Verbose mode on. Starting timer")
         start_time = time.time()
 
-    if args.scale == "zscale":
-        import sklearn.preprocessing
+    # if args.scale == "zscale":
+    #     from sklearn import preprocessing
 
 
     # process fast5 files given top level path
@@ -133,7 +133,7 @@ def main():
                             # convert signal to pA
                             pA_sig = convert_to_pA(data[read])
                             if args.scale:
-                                sig = np.array(pA_sig)
+                                sig = np.array(pA_sig, dtype=float)
                                 pA_sig = scale_data(args, sig)
                             ar = []
                             for i in pA_sig:
@@ -394,7 +394,7 @@ def scale_data(args, sig):
                                           with_std=True,
                                           copy=True)
         elif args.scale == "medmad":
-            arr = np.ma.array(sig).compressed()
+            arr = np.ma.array(sig, dtype=float).compressed()
             med = np.median(arr)
             mad = np.median(np.abs(arr - med))
             scaled_mad = mad * 1.4826
