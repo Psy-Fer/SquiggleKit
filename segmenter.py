@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -51,12 +53,15 @@ def main():
     parser = MyParser(
         description="segmenter - script to find obvious regions in squiggle data")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-f", "--f5f",
-                       help="File list of fast5 paths")
+
+    group.add_argument("-i", "--ind", nargs='+', 
+                        help="Individual fast5 file/s")
     group.add_argument("-p", "--f5_path",
                        help="Fast5 top dir")
     group.add_argument("-s", "--signal",
                        help="Extracted signal file from squigglePull")
+    parser.add_argument("--single",action="store_true",
+                        help="single fast5 files")
     parser.add_argument("-n", "--Num", type=int, default=0,
                         help="Section of signal to look at - default 0=all")
     parser.add_argument("-e", "--error", type=int, default=5,
@@ -83,10 +88,12 @@ def main():
                         help="Minimum percentage of minimum window segment for initial stall segment")
     parser.add_argument("-j", "--stall_start", type=int, default=300,
                         help="Maximum distance for start of stall segment to be detected")
-    parser.add_argument("-scale_hi", "--scale_hi", type=int, default=900,
+    parser.add_argument("-lim_hi", "--lim_hi", type=int, default=900,
                         help="Upper limit for signal outlier scaling")
-    parser.add_argument("-scale_low", "--scale_low", type=int, default=0,
+    parser.add_argument("-lim_low", "--lim_low", type=int, default=0,
                         help="Lower limit for signal outlier scaling")
+    parser.add_argument("--raw_signal",action="store_true",
+                        help="Plot raw signal instead of converting to pA")
     args = parser.parse_args()
 
     # print help if no arguments given
@@ -100,47 +107,7 @@ def main():
     squig = []
     segs = []
 
-    if args.f5f:
-        # file list of fast5 files.
-        # fast5_name {Tab} quality_score
-        # not using the second column atm
-        with open(args.f5f, 'r') as s:
-            for l in s:
-                l = l.strip('\n')
-                l = l.split('\t')[0]
-                path = l
-                l = l.split('/')
-                fast5 = l[-1]
-                sig = process_fast5(path)
-                if not sig:
-                    sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5))
-                    continue
-                # cut signal based on -n flag
-                sig = sig[:args.Num]
-                # This removes very large high and low peaks
-                sig = scale_outliers(sig, args)
-                # Do the segment detection
-                segs = get_segs(sig, args)
-                if not segs:
-                    sys.stderr.write("no segments found: {}".format(fast5))
-                    continue
-                # run tests on segments based on user question
-                if args.test:
-                    segs = test_segs(segs, args)
-                    if not segs:
-                        continue
-                # output sections
-                out = []
-                for i, j in segs:
-                    out.append(str(i))
-                    out.append(str(j))
-                    output = ",".join(out)
-                print "\t".join([fast5, output])
-                # visualise for parameter tuning
-                if args.view:
-                    view_segs(segs, sig, args)
-
-    elif args.f5_path:
+    if args.f5_path:
         # process fast5 files given top level path, recursive
         for dirpath, dirnames, files in os.walk(args.f5_path):
             for fast5 in files:
@@ -148,35 +115,66 @@ def main():
                     fast5_file = os.path.join(dirpath, fast5)
 
                     # extract data from file
-                    sig = process_fast5(fast5_file)
-                    if not sig:
-                        sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5))
-                        continue
-                    # cut signal based on -n flag
-                    sig = sig[:args.Num]
-                    sig = np.array(sig, dtype=int)
-                    # This removes very large high and low peaks
-                    sig = scale_outliers(sig, args)
-                    # Do the segment detection
-                    segs = get_segs(sig, args)
-                    if not segs:
-                        sys.stderr.write("no segments found: {}".format(fast5))
-                        continue
-                    # run tests on segments based on user question
-                    if args.test:
-                        segs = test_segs(segs, args)
-                        if not segs:
+
+                    # changed to a !single check instead of a multi check
+                    if not args.single:
+                        sigs = get_multi_fast5_signal(args, fast5_file)
+                        for read in sigs:
+                            sig = sigs[read]
+                            sig = sig[:args.Num]
+
+                            sig = np.array(sig, dtype=float)
+                            sig = scale_outliers(sig, args)
+                            segs = get_segs(sig, args)
+                            if not segs:
+                                sys.stderr.write("no segments found: {}".format(fast5))
+                                continue
+                            # run tests on segments based on user question
+                            if args.test:
+                                segs = test_segs(segs, args)
+                                if not segs:
+                                    continue
+                            # output sections
+                            out = []
+                            for i, j in segs:
+                                out.append(str(i))
+                                out.append(str(j))
+                                output = ",".join(out)
+                            print("\t".join([read, output]))
+                            # visualise for parameter tuning
+                            if args.view:
+                                view_segs(segs, sig, args)
+                    else:
+                        # extract data from file
+                        sig = process_fast5(fast5_file, args)
+                        if not sig.any():
+                            sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5))
                             continue
-                    # output sections
-                    out = []
-                    for i, j in segs:
-                        out.append(str(i))
-                        out.append(str(j))
-                        output = ",".join(out)
-                    print "\t".join([fast5, output])
-                    # visualise for parameter tuning
-                    if args.view:
-                        view_segs(segs, sig, args)
+                        # cut signal based on -n flag
+                        sig = sig[:args.Num]
+                        sig = np.array(sig, dtype=float)
+                        # This removes very large high and low peaks
+                        sig = scale_outliers(sig, args)
+                        # Do the segment detection
+                        segs = get_segs(sig, args)
+                        if not segs:
+                            sys.stderr.write("no segments found: {}".format(fast5))
+                            continue
+                        # run tests on segments based on user question
+                        if args.test:
+                            segs = test_segs(segs, args)
+                            if not segs:
+                                continue
+                        # output sections
+                        out = []
+                        for i, j in segs:
+                            out.append(str(i))
+                            out.append(str(j))
+                            output = ",".join(out)
+                        print("\t".join([fast5, output]))
+                        # visualise for parameter tuning
+                        if args.view:
+                            view_segs(segs, sig, args)
 
     elif args.signal:
         # signal file, gzipped, from squigglepull
@@ -197,7 +195,11 @@ def main():
                 fast5 = l[0]
                 # modify the l[3:] to the column the data starts...little bit of variability here.
                 # TODO: make this based on column header
-                sig = np.array([int(i) for i in l[4:]], dtype=int)
+                if "." in l[4]:
+                    sig = np.array([float(i) for i in l[4:]], dtype=float)
+                else:
+                    sig = np.array([int(i) for i in l[4:]], dtype=int)
+                #sig = np.array([int(i) for i in l[4:]], dtype=int)
                 if not sig.any():
                     sys.stderr.write("No signal found in file: {} {}".format(args.signal, fast5))
                     continue
@@ -222,11 +224,71 @@ def main():
                     out.append(str(i))
                     out.append(str(j))
                     output = ",".join(out)
-                print "\t".join([fast5, output])
+                print("\t".join([fast5, output]))
                 # visualise for parameter tuning
                 if args.view:
                     view_segs(segs, sig, args)
+    elif args.ind:
+        files = args.ind
+        for fast5_file in files:
+            if not args.single:
+                sigs = get_multi_fast5_signal(args, fast5_file)
+                for read in sigs:
+                    sig = sigs[read]
+                    sig = sig[:args.Num]
 
+                    sig = np.array(sig, dtype=float)
+                    sig = scale_outliers(sig, args)
+                    segs = get_segs(sig, args)
+                    if not segs:
+                        sys.stderr.write("no segments found: {}".format(fast5_file))
+                        continue
+                    # run tests on segments based on user question
+                    if args.test:
+                        segs = test_segs(segs, args)
+                        if not segs:
+                            continue
+                    # output sections
+                    out = []
+                    for i, j in segs:
+                        out.append(str(i))
+                        out.append(str(j))
+                        output = ",".join(out)
+                    print("\t".join([read, output]))
+                    # visualise for parameter tuning
+                    if args.view:
+                        view_segs(segs, sig, args)
+            else:
+                # extract data from file
+                sig = process_fast5(fast5_file, args)
+                if sig is None:
+                    sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5_file))
+                    continue
+                # cut signal based on -n flag
+                sig = sig[:args.Num]
+                sig = np.array(sig, dtype=float)
+                # This removes very large high and low peaks
+                sig = scale_outliers(sig, args)
+                # Do the segment detection
+                segs = get_segs(sig, args)
+                if not segs:
+                    sys.stderr.write("no segments found: {}".format(fast5_file))
+                    continue
+                # run tests on segments based on user question
+                if args.test:
+                    segs = test_segs(segs, args)
+                    if not segs:
+                        continue
+                # output sections
+                out = []
+                for i, j in segs:
+                    out.append(str(i))
+                    out.append(str(j))
+                    output = ",".join(out)
+                print("\t".join([fast5_file, output]))
+                # visualise for parameter tuning
+                if args.view:
+                    view_segs(segs, sig, args)
     else:
         sys.stderr.write("Unknown file or path input")
         parser.print_help(sys.stderr)
@@ -252,34 +314,87 @@ def scale_outliers(squig, args):
     I was scaling at one point, but removing tends to be less problematic
     This can change the position co-ordinates a little
     '''
-    k = (squig > args.scale_low) & (squig < args.scale_hi)
+    k = (squig > args.lim_low) & (squig < args.lim_hi)
     return squig[k]
 
-
-def process_fast5(path):
+# same changes as in SquigglePlot
+def process_fast5(path, args):
     '''
     open fast5 and extract raw signal
     '''
     # open fast5 file
-    squig = []
+    sig = []
     try:
         hdf = h5py.File(path, 'r')
     except:
         traceback.print_exc()
-        sys.stderr.write("process_fast5():fast5 file failed to open: {}".format(path))
-        squig = []
-        return squig
+        sys.stderr.write('process_fast5():fast5 file failed to open: {}'.format(path))
+        sig = []
+        return sig
     # extract raw signal
     try:
-        c = hdf['Raw/Reads'].keys()
+        #b = sorted([i for i in hdf['Analyses'].keys() if i[0] == 'B'])[-1]
+        c = list(hdf['Raw/Reads'].keys())
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
-            squig.append(int(col))
+            sig.append(int(col))
+
+        readID = hdf['Raw/Reads/'][c[0]].attrs['read_id'].decode()
+        digitisation = hdf['UniqueGlobalKey/channel_id'].attrs['digitisation']
+        offset = hdf['UniqueGlobalKey/channel_id'].attrs['offset']
+        range = float("{0:.2f}".format(hdf['UniqueGlobalKey/channel_id'].attrs['range']))
+        if not args.raw_signal:
+            #convert to pA
+            sig = np.array(sig, dtype=int)
+            sig = convert_to_pA_numpy(sig, digitisation, range, offset)
+            sig = np.round(sig, 2)
+            
     except:
         traceback.print_exc()
-        sys.stderr.write("process_fast5():failed to extract events or fastq from: {}".format(path))
-        squig = []
-    return squig
+        sys.stderr.write('process_fast5():failed to extract events or fastq from: {}'.format(path))
+        sig = []
+    return sig
 
+# same changes as in SquigglePlot
+def get_multi_fast5_signal(args, read_filename):
+    '''
+    open multi fast5 files and extract information
+    '''
+    signals = {}
+    f5_dic = read_multi_fast5(args, read_filename)
+    for read in f5_dic:
+        signal = f5_dic[read]['signal']
+        if not args.raw_signal:
+            #convert to pA
+            signal = np.array(signal, dtype=int)
+            signal = convert_to_pA_numpy(signal, f5_dic[read]['digitisation'], f5_dic[read]['range'], f5_dic[read]['offset'])
+            signal = np.round(signal, 2)
+        signals[read] = signal
+    # return signal/signals
+    return signals
+
+# same changes as in SquigglePlot
+def read_multi_fast5(args, filename):
+    '''
+    read multifast5 file and return data
+    '''
+    f5_dic = {}
+    with h5py.File(filename, 'r') as hdf:
+        for read in list(hdf.keys()):
+            f5_dic[read] = {'signal': [], 'readID': '', 'digitisation': 0.0,
+                            'offset': 0.0, 'range': 0.0, 'sampling_rate': 0.0}
+            try:
+                f5_dic[read]['readID'] = hdf[read]['Raw'].attrs['read_id'].decode()
+                f5_dic[read]['digitisation'] = hdf[read]['channel_id'].attrs['digitisation']
+                f5_dic[read]['offset'] = hdf[read]['channel_id'].attrs['offset']
+                f5_dic[read]['range'] = float("{0:.2f}".format(hdf[read]['channel_id'].attrs['range']))
+                f5_dic[read]['sampling_rate'] = hdf[read]['channel_id'].attrs['sampling_rate']
+
+                for col in hdf[read]['Raw/Signal'][()]:
+                    f5_dic[read]['signal'].append(int(col))
+            except:
+                traceback.print_exc()
+                sys.stderr.write("extract_fast5():failed to read readID: {}".format(read))
+    return f5_dic
 
 def get_segs(sig, args):
     '''
@@ -378,7 +493,7 @@ def test_segs(segs, args):
 
     return segs
 
-
+# changed from axvline to span
 def view_segs(segs, sig, args):
     '''
     View the segments on the squiggle
@@ -389,13 +504,17 @@ def view_segs(segs, sig, args):
 
     # Show segment lines
     for i, j in segs:
-        ax.axvline(x=i, color='m')
-        ax.axvline(x=j, color='m')
+        #ax.axvline(x=i, color='m')
+        #ax.axvline(x=j, color='m')
+        ax.axvspan(i, j, alpha=0.5, color='m')
 
     plt.plot(sig, color='k')
     plt.show()
     plt.clf()
 
+def convert_to_pA_numpy(d, digitisation, range, offset):
+    raw_unit = range / digitisation
+    return (d + offset) * raw_unit
 
 if __name__ == '__main__':
     main()

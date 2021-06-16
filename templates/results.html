@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>SquiggleKit Web</title>        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.css">
+    </head>
+    <body>
+        <section class="section has-text-centered">
+            <a href="/"><h1 class="title has-text-link">SquiggleKit Web</h1></a>
+            <h2 class="subtitle">A web application to help with the display and analysis of Oxford Nanopore raw signal data.</h2>
+        </section>
+        <section class="section has-text-centered">
+            <h1 class="title is-5">Data from {{count}} files was successfully extracted from</h1><h1 class="title is-5 has-text-info">{{f5_path}}</h1>
+            <a class="button" href="/view_graphs?f5_path={{f5_path}}&type={{type}}">View Graphs</a>
+            {% if all_data %}
+                {% for data in all_data %}
+                    <p>{{data}}</p>
+                {% endfor %}
+            {% endif %}
+        </section>
+    </body>
+</html>

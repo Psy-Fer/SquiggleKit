@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>SquiggleKit Web</title>        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.css">
+        <script>
+            function modal(){
+                document.getElementById("delete_modal").classList.add("is-active")
+            }
+
+            function cancel(){
+                document.getElementById("delete_modal").classList.remove("is-active")
+            }
+
+            function deleteData(){
+                window.location.replace("/delete?f5_path={{f5_path}}&type={{type}}")
+            }
+        </script>
+    </head>
+    <body>
+        <section class="section has-text-centered">
+            <a href="/"><h1 class="title has-text-link">SquiggleKit Web</h1></a>
+            <h2 class="subtitle">A web application to help with the display and analysis of Oxford Nanopore raw signal data.</h2>
+        </section>
+
+    <div class="modal" id="delete_modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Confirm Delete</p>
+                <button class="delete" aria-label="close" onClick=cancel()></button>
+            </header>
+            <section class="modal-card-body">
+                Are you sure you would like to delete the signal file? This cannot be retrieved and will need to be recreated if you wish to view the data again.
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger" onClick="deleteData()">Yes</button>
+                <button class="button" onClick="cancel()">Cancel</button>
+            </footer>
+        </div>
+	</div>
+
+        <section class="section has-text-centered">
+            <h1 class="title is-5 has-text-danger">{{exception}} in {{f5_path}}</h1>
+            <h1 class="title is-6">What would you like to do?</h1>
+            <div class="buttons is-centered">
+                <a class="button is-success is-rounded" href="/results?f5_path={{f5_path}}&type={{type}}&processing=1">Continue & Overwrite</a>
+                <a class="button is-warning is-rounded" href="/view_graphs?f5_path={{f5_path}}&type={{type}}">View Existing Data</a>
+                <input class="button is-rounded is-danger" type="submit" value="Delete" onClick="modal()">
+            </div>
+        </section>
+    </body>
+</html>

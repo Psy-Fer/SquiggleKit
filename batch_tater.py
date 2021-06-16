@@ -77,7 +77,8 @@ with open(master, 'r') as f:
             break
 
 # for stats later and easy job relauncing
-print >> sys.stderr, "extracting:", tar_list
+#print >> sys.stderr, "extracting:", tar_list
+print("extracting:", tar_list, file=sys.stderr)
 # do the thing. That --transform hack is awesome. Blows away all the leading folders.
 if PATH:
     cmd = "tar -xf {} --transform='s/.*\///' -C {} -T {}".format(
@@ -85,5 +86,7 @@ if PATH:
     subprocess.call(cmd, shell=True, executable='/bin/bash')
 
 else:
-    print >> sys.stderr, "PATH not found! check index nooblet"
-    print >> sys.stderr, "inputs:", master, tar_list, save_path
+    #print >> sys.stderr, "PATH not found! check index nooblet"
+    print("PATH not found! Check index nooblet.", file=sys.stderr)    
+    #print >> sys.stderr, "inputs:", master, tar_list, save_path
+    print("inputs:", master, tar_list, save_path, file=sys.stderr)

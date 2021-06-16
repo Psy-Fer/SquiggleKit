@@ -16,8 +16,7 @@ matplotlib.rcParams['figure.dpi'] = 80
 # matplotlib.rcParams['savefig.dpi'] = 300
 import numpy as np
 import h5py
-# import sklearn.preprocessing
-# import pandas as pd
+
 '''
 
     James M. Ferguson (j.ferguson@garvan.org.au)
@@ -75,28 +74,31 @@ def main():
     Main function for executing logic based on file input types
     '''
     parser = MyParser(
-        description="SquigglePlot - plotting the raw signal data")
+        description="SquigglePlot - plotting the raw signal data after (optional) conversion to pA")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-f", "--f5f",
-                       help="File list of fast5 paths - Single fast5 only")
+    #   need to make it so that raw_signal flag cannot be applied with the signal file
+    #   currently cannot support it unless output file contains digitisation, range and offest values (extra info mode)
+
     group.add_argument("-p", "--f5_path",
-                       help="Fast5 top dir - including multifast5 files")
+                        help="Fast5 top dir")
     group.add_argument("-s", "--signal",
-                       help="Extracted signal file from SquigglePull")
-    group.add_argument("-i", "--ind",
-                       help="Individual fast5 file")
+                        help="Extracted signal file from SquigglePull. Currently not compatible with conversion")
+    group.add_argument("-i", "--ind", nargs='+', 
+                        help="Individual fast5 file/s")
     parser.add_argument("-r", "--readID",
-                       help="Individual readID to extract from multifast5 file")
-    parser.add_argument("-m", "--multi",action="store_true",
-                       help="turn on multi-fast5 # depricate this and do better")
+                        help="Individual readID to extract from a multifast5 file")
+    parser.add_argument("--single",action="store_true",
+                        help="single fast5 files.")
     parser.add_argument("--head", action="store_true",
-                       help="Header present in signal or flat file")
+                        help="Header present in signal or flat file")
+    parser.add_argument("--raw_signal",action="store_true",
+                        help="Plot raw signal instead of converting to pA")
     parser.add_argument("-n", "--Num",
                         help="Section of signal to look at - -n 2000 or -n 100,1500")
-    parser.add_argument("--scale_hi", type=int, default=1200,
-                        help="Upper limit for signal outlier scaling")
-    parser.add_argument("--scale_low", type=int, default=0,
-                        help="Lower limit for signal outlier scaling")
+    parser.add_argument("--lim_hi", type=int, default=1200,
+                        help="Upper limit for signal outliers")
+    parser.add_argument("--lim_low", type=int, default=0,
+                        help="Lower limit for signal outliers")
     # Arguments for now, but best way forward will probably be a config file
     parser.add_argument("--plot_colour", default='grey',
                         help="Colour of signal plot, takes any pyplot entry: k,r,b,g,red,blue,etc...")
@@ -117,12 +119,28 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
 
+    # check arguments are suitable and alert if not
+    if args.raw_signal and args.signal:
+        sys.stderr.write("Cannot convert the signal file. Will plot the values provided as is.\n")
+
+    if args.save_path and not args.save:
+        sys.stderr.write("Please provide a save suffix e.g. test.png using the --save argument.\n")
+        sys.exit(1)
+
+    if args.readID and args.single:
+        sys.stderr.write("Run the program with the -i flag and supply only the single fast5 file with the read desired.\nIf you are unsure which fast5 file contains the desired read, use fast5fetcher to extract it.\n")
+        sys.exit(1)
+
+    if args.no_show and not args.save:
+        sys.stderr.write("With the current settings, no output will be produced.\nEither remove the no_show flag, or select to save by providing a suffix to add to the created files using --save.\n")
+        sys.exit(1)
 
     matplotlib.rcParams['savefig.dpi'] = args.dpi
 
     N = 0
     N1 = 0
     N2 = 0
+    # Num gives section of the signal to look at
     if args.Num:
         if ',' in args.Num:
             N1, N2 = args.Num.split(',')
@@ -134,62 +152,40 @@ def main():
     if args.head:
         head = True
 
-
-    if args.f5f:
-        # file list of fast5 files.
-        # fast5_name\tquality_score
-        # not using the second column atm
-        with open(args.f5f, 'rt') as sz:
-            for l in sz:
-                if head:
-                    head = False
-                    continue
-                l = l.strip('\n')
-                l = l.split('\t')[0]
-                path = l
-                l = l.split('/')
-                fast5 = l[-1]
-                sig = process_fast5(path)
-                if not sig:
-                    continue
-                if N:
-                    sig = sig[:N]
-                elif N1 or N2:
-                    sig = sig[N1:N2]
-                sig = scale_outliers(sig, args)
-                # output sections
-                view_sig(args, sig, fast5)
-
-    elif args.f5_path:
+    if args.f5_path:
         # process fast5 files given top level path
         for dirpath, dirnames, files in os.walk(args.f5_path):
             for fast5 in files:
                 if fast5.endswith('.fast5'):
                     fast5_file = os.path.join(dirpath, fast5)
-                    if args.multi:
+                    #handle multifast5
+                    if not args.single:
                         sigs = get_multi_fast5_signal(args, fast5_file)
                         for read in sigs:
                             sig = sigs[read]
+                            if not sig.any():
+                                sys.stderr.write("main():data not extracted from read {}. Moving to next file: {}\n".format(read, fast5_file))
+                                continue
                             if N:
                                 sig = sig[:N]
                             elif N1 or N2:
                                 sig = sig[N1:N2]
-                            sig = np.array(sig, dtype=int)
+                            sig = np.array(sig, dtype=float)
                             sig = scale_outliers(sig, args)
-                            view_sig(args, sig, read)
+                            view_sig(args, sig, read, fast5_file)
                     else:
                         # extract data from file
-                        sig = process_fast5(fast5_file)
-                        if not sig:
+                        sig = process_fast5(fast5_file, args)
+                        if not sig.any():
                             sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5_file))
                             continue
                         if N:
                             sig = sig[:N]
                         elif N1 or N2:
                             sig = sig[N1:N2]
-                        sig = np.array(sig, dtype=int)
+                        sig = np.array(sig, dtype=float)
                         sig = scale_outliers(sig, args)
-                        view_sig(args, sig, fast5)
+                        view_sig(args, sig, fast5, fast5_file)
 
     elif args.signal:
         # signal file, from squigglepull
@@ -202,6 +198,10 @@ def main():
                 l = l.strip('\n')
                 l = l.split('\t')
                 fast5 = l[0]
+                readID = l[1]
+                if args.readID:
+                    if args.readID != readID:
+                        continue
                 # modify the l[6:] to the column the data starts...little bit of variability here.
             # sig = np.array([int(i) for i in l[4:]], dtype=int)
                 if "." in l[4]:
@@ -217,37 +217,69 @@ def main():
                 elif N1 or N2:
                     sig = sig[N1:N2]
                 sig = scale_outliers(sig, args)
-                view_sig(args, sig, fast5)
-
+                if args.single:
+                    view_sig(args, sig, fast5, fast5)
+                else:
+                    view_sig(args, sig, readID, fast5)
+        
     elif args.ind:
+        files = args.ind
+        for fast5 in files:
         # Do an OS detection here for windows (get from fast5_fetcher)
-        fast5 = args.ind.split('/')[-1]
-        # extract data from file
-        sig=None
-        if args.multi:
-                sigs = get_multi_fast5_signal(args, args.ind)
-                sig = sigs[args.readID]
-        else:
-                sig = process_fast5(args.ind)
-        if not sig:
-            sys.stderr.write("main():data not extracted: {}".format(args.ind))
-            parser.print_help(sys.stderr)
-            sys.exit(1)
-        if N:
-            sig = sig[:N]
-        elif N1 or N2:
-            sig = sig[N1:N2]
+            # extract data from file
+            sig = None
+            if args.single:
+                sig = process_fast5(fast5, args)
+                read = fast5.split('/')[-1]
+                if not sig.any():
+                    sys.stderr.write("main():data not extracted: {}".format(args.ind))
+                    parser.print_help(sys.stderr)
+                    sys.exit(1)
+                if N:
+                    sig = sig[:N]
+                elif N1 or N2:
+                    sig = sig[N1:N2]
 
-        sig = np.array(sig, dtype=int)
-        sig = scale_outliers(sig, args)
-        view_sig(args, sig, fast5)
+                sig = np.array(sig, dtype=float)
+                sig = scale_outliers(vimsig, args)
+                view_sig(args, sig, read, fast5)
+
+            else:
+                sys.stderr.write("Looking at the file {}\n".format(fast5))
+                sigs = get_multi_fast5_signal(args, fast5)
+                if args.readID:
+                # if readID is provided, only get data with matching readID
+                    sig = sigs[args.readID]
+                    read = args.readID
+                    if not sig.any():
+                        sys.stderr.write("main():data not extracted: {}".format(args.ind))
+                        parser.print_help(sys.stderr)
+                        sys.exit(1)
+                    if N:
+                        sig = sig[:N]
+                    elif N1 or N2:
+                        sig = sig[N1:N2]
+
+                    sig = np.array(sig, dtype=float)
+                    sig = scale_outliers(sig, args)
+                    view_sig(args, sig, read, fast5)
+                else:
+                    for read in sigs:
+                        sig = sigs[read]
+                        if N:
+                            sig = sig[:N]
+                        elif N1 or N2:
+                            sig = sig[N1:N2]
+                        sig = np.array(sig, dtype=float)
+                        sig = scale_outliers(sig, args)
+                        view_sig(args, sig, read, fast5)            
 
     else:
         sys.stderr.write("Unknown file or path input")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    sys.stderr.write("Done")
+    sys.stderr.write("Done\n")
 
 
 def dicSwitch(i):
@@ -262,10 +294,11 @@ def dicSwitch(i):
 
 def scale_outliers(sig, args):
     ''' Scale outliers to within m stdevs of median '''
-    k = (sig > args.scale_low) & (sig < args.scale_hi)
+    ''' Remove outliers that don't fit within the specified bounds '''
+    k = (sig > args.lim_low) & (sig < args.lim_hi)
     return sig[k]
 
-
+# Changed to convert the signal to pA
 def get_multi_fast5_signal(args, read_filename):
     '''
     open multi fast5 files and extract information
@@ -279,11 +312,19 @@ def get_multi_fast5_signal(args, read_filename):
             if readID != args.readID:
                 continue
         signal = f5_dic[read]['signal']
-
+        if not args.raw_signal:
+            #convert to pA
+            signal = np.array(signal, dtype=int)
+            signal = convert_to_pA_numpy(signal, f5_dic[read]['digitisation'], f5_dic[read]['range'], f5_dic[read]['offset'])
+            signal = np.round(signal, 2)
         signals[readID] = signal
+    if args.readID and not signals:
+        sys.stderr.write("Could not find data for read {} in file {}\n".format(args.readID, read_filename))
     # return signal/signals
     return signals
 
+# Changed to only store information of certain read when readID is provided
+# Also changed to extract information required for conversion
 def read_multi_fast5(args, filename):
     '''
     read multifast5 file and return data
@@ -294,21 +335,26 @@ def read_multi_fast5(args, filename):
             f5_dic[read] = {'signal': [], 'readID': '', 'digitisation': 0.0,
                             'offset': 0.0, 'range': 0.0, 'sampling_rate': 0.0}
             try:
-                for col in hdf[read]['Raw/Signal'][()]:
-                    f5_dic[read]['signal'].append(int(col))
-
-                f5_dic[read]['readID'] = hdf[read]['Raw'].attrs['read_id'].decode()
+                readID = hdf[read]['Raw'].attrs['read_id'].decode()
+                #if readID is provided, only get and store data with matching readID
+                if not args.readID is None:
+                    if readID != args.readID:
+                        continue
+                f5_dic[read]['readID'] = readID
                 f5_dic[read]['digitisation'] = hdf[read]['channel_id'].attrs['digitisation']
                 f5_dic[read]['offset'] = hdf[read]['channel_id'].attrs['offset']
                 f5_dic[read]['range'] = float("{0:.2f}".format(hdf[read]['channel_id'].attrs['range']))
                 f5_dic[read]['sampling_rate'] = hdf[read]['channel_id'].attrs['sampling_rate']
+
+                for col in hdf[read]['Raw/Signal'][()]:
+                    f5_dic[read]['signal'].append(int(col))
             except:
                 traceback.print_exc()
                 sys.stderr.write("extract_fast5():failed to read readID: {}".format(read))
     return f5_dic
 
-
-def process_fast5(path):
+# Changed to extract information required for conversion and to convert the signal
+def process_fast5(path, args):
     '''
     open fast5 and extract raw signal
     '''
@@ -327,13 +373,24 @@ def process_fast5(path):
         c = list(hdf['Raw/Reads'].keys())
         for col in hdf['Raw/Reads/'][c[0]]['Signal'][()]:
             sig.append(int(col))
+
+        readID = hdf['Raw/Reads/'][c[0]].attrs['read_id'].decode()
+        digitisation = hdf['UniqueGlobalKey/channel_id'].attrs['digitisation']
+        offset = hdf['UniqueGlobalKey/channel_id'].attrs['offset']
+        range = float("{0:.2f}".format(hdf['UniqueGlobalKey/channel_id'].attrs['range']))
+        if not args.raw_signal:
+            #convert to pA
+            sig = np.array(sig, dtype=int)
+            sig = convert_to_pA_numpy(sig, digitisation, range, offset)
+            sig = np.round(sig, 2)
+            
     except:
         traceback.print_exc()
         sys.stderr.write('process_fast5():failed to extract events or fastq from: {}'.format(path))
         sig = []
     return sig
 
-def view_sig(args, sig, name, path=None):
+def view_sig(args, sig, name, file, path=None):
     '''
     View the squiggle
     '''
@@ -342,14 +399,21 @@ def view_sig(args, sig, name, path=None):
     # ax = fig.add_subplot(111)
     # plt.tight_layout()
     plt.autoscale()
-    plt.title("Raw signal for:   {}".format(name))
     plt.xlabel("")
-    # print(sig.dtype)
-    # print(sig.dtype == float64)
-    if sig.dtype == float:
-        plt.ylabel("Current (pA)")
-    elif sig.dtype == int:
+    
+    if args.signal:
+        if sig.dtype == float:
+            raw = False    
+        elif sig.dtype == int:
+            raw = True
+    else:
+        raw = args.raw_signal
+    if raw:
+        plt.title("Raw signal for:   {} \n File: {}".format(name, file))
         plt.ylabel("Current - Not scaled")
+    else:
+        plt.title("Signal for:   {} \nls File: {}".format(name, file))
+        plt.ylabel("Current (pA)")       
 
 
     plt.plot(sig, color=args.plot_colour)
@@ -360,6 +424,10 @@ def view_sig(args, sig, name, path=None):
         plt.show()
     plt.clf()
 
+# new conversion function (same as SquigglePull and segmenter)
+def convert_to_pA_numpy(d, digitisation, range, offset):
+    raw_unit = range / digitisation
+    return (d + offset) * raw_unit
 
 if __name__ == '__main__':
     main()
