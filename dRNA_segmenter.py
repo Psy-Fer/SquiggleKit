@@ -123,7 +123,7 @@ def main():
                 if b - a < lo_thresh:
                     continue
                 x, y = a - 1000, b - 1000
-                print "{}\t{}\t{}\t{}".format(f5, readID, x, y)
+                print("{}\t{}\t{}\t{}".format(f5, readID, x, y))
                 break
 
 

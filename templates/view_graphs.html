@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>SquiggleKit Web</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.1/css/selectize.min.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/js/standalone/selectize.min.js"></script>
+        <style>
+            .bk {
+                position: center;
+            }
+        </style>
+        <script>
+
+            function loadGraph(){
+                document.getElementById("view_button").classList.add("is-loading")
+                var read_id = document.getElementById("read").value
+                window.location.replace("/view_graphs?f5_path={{f5_path}}&type={{type}}&read_id=".concat(read_id))
+            }
+
+            function modal(){
+                document.getElementById("delete_modal").classList.add("is-active")
+            }
+
+            function cancel(){
+                document.getElementById("delete_modal").classList.remove("is-active")
+            }
+
+            function deleteData(){
+                window.location.replace("/delete?f5_path={{f5_path}}&type={{type}}")
+            }
+
+            function modalClearAll(){
+                document.getElementById("clear_all_modal").classList.add("is-active")
+            }
+
+            function cancelClearAll(){
+                document.getElementById("clear_all_modal").classList.remove("is-active")
+            }
+
+            function clearGraphAll(){
+                document.getElementById("clear_all_modal").classList.remove("is-active")
+                document.getElementById("clear_all_button").classList.add("is-loading")
+                window.location.reload(true)
+            }
+
+            function modalHelp(){
+                document.getElementById("help_modal").classList.add("is-active")
+            }
+
+            function closeHelp(){
+                document.getElementById("help_modal").classList.remove("is-active")
+            }
+
+        </script>
+    </head>
+    <body>
+
+    <div class="modal" id="delete_modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Confirm Delete</p>
+                <button class="delete" aria-label="close" onClick=cancel()></button>
+            </header>
+            <section class="modal-card-body">
+                Are you sure you would like to delete the signal file? This cannot be retrieved and will need to be recreated if you wish to view the data again.
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-success" onClick="deleteData()">Yes</button>
+                <button class="button" onClick="cancel()">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <div class="modal" id="clear_all_modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Confirm Reset Graph</p>
+                <button class="delete" aria-label="close" onClick="cancelClearAll()"></button>
+            </header>
+            <section class="modal-card-body">
+                Are you sure you would like to reset the graph? This will remove all the current drawings, thresholds and segments and reset the graph to its original state.
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-success" onClick="clearGraphAll()">Yes</button>
+                <button class="button" onClick="cancelClearAll()">Cancel</button>
+            </footer>
+        </div>
+    </div>
+
+    <div class="modal" id="help_modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title"><strong>Help</strong></p>
+                <button class="delete" aria-label="close" onClick="closeHelp()"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="content">
+                        <p>To view a graph, select the desired readID from the drop down menu and click the "View" button. To remove all annotations, click "Clear Annotations". To completely reset the graph, click "Reset". To delete the extracted data file, click "Delete All Graphs".</p>
+                        <hr>
+                        <h4>ANALYSIS</h4>
+                        <p>On the left of the graph there are 2 options that can be used for further analysis of the graphs.</p>
+                        <h6>THRESHOLD</h6>
+                        <p>Set a lower and upper threshold where points beyond the range will be omitted from the graph. Both min and max values must be >0, and integer values. The "Reset" button removes any changes to the threshold.</p>
+                        <h6>VIEW HOMOPOLYMER/STALL REGIONS</h6>
+                        <p>Through the use of the segmenter portion of the SquiggleKit, the stall/homopolymer regions of the graph will be identified and highlighted in pink on the graph.</p>
+                        <hr>
+                        <h4>TOOLS</h4>
+                        <p>The tools are located on the right of the graph in a toolbar. Hover over the tool to find out its name. To use the tool, you must activate it by clicking on it. If it has a blue line on the left side, it is activated.</p>
+                        <h6>PAN</h6>
+                        <p>Click and drag to move across the plot.</p>
+                        <h6>BOX ZOOM</h6>
+                        <p>Click and drag to define a box. The plot will automatically zoom in to the defined box.</p>
+                        <h6>WHEEL ZOOM</h6>
+                        <p>Use the wheel on a mouse or pinch and drag a mouse pad while the cursor is in the plot to zoom in and out.</p>
+                        <h6>BOX EDIT TOOL</h6>
+                        <p>Add, move and delete boxes for highlighting specific sections. Upper limit is 5 boxes at a time, after which the oldest box will be replaced by the newest. Hold SHIFT while selecting to select more than one at a time.<br>
+                            <b>Add:</b> Hold SHIFT and click and drag with your mouse.<br>
+                            <b>Move:</b> Click on the desired box/es and drag.<br>
+                            <b>Delete:</b> Click on the desired box/es and press BACKSPACE/DELETE (for Mac users).</p>
+                        <h6>FREEHAND DRAW TOOL</h6>
+                        <p>Write and draw on the plot.<br>
+                            <b>Add:</b> Simply click and drag. The line will be counted as one until the click is released.<br>
+                            <b>Move:</b> Click on the desired line/s and drag.<br>
+                            <b>Delete:</b> Click on the desired line/s and press BACKSPACE/DELETE (for Mac users).</p>
+                        <h6>SAVE</h6>
+                        <p>Click save to download a png of the graph exactly as is. This includes any zoom selected or drawings/annotations that have been added.</p>
+                        <h6>RESET</h6>
+                        <p>Reset will only realign the graph with the original setting. It does not remove any drawings/annotations added.</p>
+                    </p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+            </footer>
+        </div>
+    </div>
+
+        <section class="section has-text-centered">
+            <a href="/"><h1 class="title has-text-link">SquiggleKit Web</h1></a>
+            <h2 class="subtitle">A web application to help with the display and analysis of Oxford Nanopore raw signal data.</h2>
+        </section>
+        <section class="section has-text-centered">
+            {% if type == "raw" %}
+                <h1 class="title is-5">Data of {{count}} reads were successfully extracted from</h1>
+            {% else %}
+                <h1 class="title is-5">Data of {{count}} reads were successfully extracted and converted to pA from</h1>
+            {% endif %}
+            <h1 class="title is-5 has-text-info">{{f5_path}}</h1>
+            <p>Select a readID</p><br>
+            <div class="field is-grouped is-grouped-centered">
+                <div class="control">
+                      <select id="read" class="selectpicker" style="width:300px">
+                          <option value=""></option>
+                          {% for read in reads %}
+                              {% if read == id %}
+                                  <option value={{read}} selected>{{read}}</option>
+                              {% else %}
+                                  <option value={{read}}>{{read}}</option>
+                              {% endif %}
+                          {% endfor %}
+                      </select>
+                </div>
+                <script>
+                    $(function() {
+                      $('select').selectize();
+                    });
+                </script>
+                <div class="control">
+                    <button class="button is-info" id="view_button" onClick="loadGraph()">View</button>
+                </div>
+            </div>
+            <p class="has-text-danger" id="error"></p>
+            <input class="button is-rounded is-danger" type="submit" value="Delete All Graphs" onClick="modal()">
+            <input class="button is-rounded is-success" type="submit" value="Help" onClick="modalHelp()">
+        </section>
+        {% if id|length %}
+        <section class="section has-text-centered">
+            <button class="button is-rounded" id="clear_all_button" onClick="modalClearAll()">Reset</button>
+            <br><br>
+            <section>
+            {{ script|safe }}
+            </section>
+        </section>
+        {% endif %}
+    </body>
+</html>
