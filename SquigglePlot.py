@@ -83,7 +83,7 @@ def main():
                         help="Fast5 top dir")
     group.add_argument("-s", "--signal",
                         help="Extracted signal file from SquigglePull. Currently not compatible with conversion")
-    group.add_argument("-i", "--ind", nargs='+', 
+    group.add_argument("-i", "--ind", nargs='+',
                         help="Individual fast5 file/s")
     parser.add_argument("-r", "--readID",
                         help="Individual readID to extract from a multifast5 file")
@@ -221,7 +221,7 @@ def main():
                     view_sig(args, sig, fast5, fast5)
                 else:
                     view_sig(args, sig, readID, fast5)
-        
+
     elif args.ind:
         files = args.ind
         for fast5 in files:
@@ -241,7 +241,7 @@ def main():
                     sig = sig[N1:N2]
 
                 sig = np.array(sig, dtype=float)
-                sig = scale_outliers(vimsig, args)
+                sig = scale_outliers(sig, args)
                 view_sig(args, sig, read, fast5)
 
             else:
@@ -272,7 +272,7 @@ def main():
                             sig = sig[N1:N2]
                         sig = np.array(sig, dtype=float)
                         sig = scale_outliers(sig, args)
-                        view_sig(args, sig, read, fast5)            
+                        view_sig(args, sig, read, fast5)
 
     else:
         sys.stderr.write("Unknown file or path input")
@@ -383,7 +383,7 @@ def process_fast5(path, args):
             sig = np.array(sig, dtype=int)
             sig = convert_to_pA_numpy(sig, digitisation, range, offset)
             sig = np.round(sig, 2)
-            
+
     except:
         traceback.print_exc()
         sys.stderr.write('process_fast5():failed to extract events or fastq from: {}'.format(path))
@@ -400,10 +400,10 @@ def view_sig(args, sig, name, file, path=None):
     # plt.tight_layout()
     plt.autoscale()
     plt.xlabel("")
-    
+
     if args.signal:
         if sig.dtype == float:
-            raw = False    
+            raw = False
         elif sig.dtype == int:
             raw = True
     else:
@@ -413,7 +413,7 @@ def view_sig(args, sig, name, file, path=None):
         plt.ylabel("Current - Not scaled")
     else:
         plt.title("Signal for:   {} \nls File: {}".format(name, file))
-        plt.ylabel("Current (pA)")       
+        plt.ylabel("Current (pA)")
 
 
     plt.plot(sig, color=args.plot_colour)
