@@ -176,7 +176,7 @@ def main():
                     else:
                         # extract data from file
                         sig = process_fast5(fast5_file, args)
-                        if not sig.any():
+                        if not sig:
                             sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5_file))
                             continue
                         if N:
@@ -208,7 +208,7 @@ def main():
                     sig = np.array([float(i) for i in l[4:]], dtype=float)
                 else:
                     sig = np.array([int(i) for i in l[4:]], dtype=int)
-                if not sig.any():
+                if not sig:
                     sys.stderr.write("No signal found: {}".format(args.signal))
                     parser.print_help(sys.stderr)
                     sys.exit(1)
@@ -231,7 +231,7 @@ def main():
             if args.single:
                 sig = process_fast5(fast5, args)
                 read = fast5.split('/')[-1]
-                if not sig.any():
+                if not sig:
                     sys.stderr.write("main():data not extracted: {}".format(args.ind))
                     parser.print_help(sys.stderr)
                     sys.exit(1)
