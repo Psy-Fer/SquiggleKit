@@ -115,7 +115,7 @@ def main():
                 if not data:
                     sys.stderr.write("main():data not extracted from {}. Moving to next file.".format(fast5_file))
                     continue
-                 print data
+                 # print data
                 if not multi:
                     print_data(data, args, fast5)
                 else:
@@ -145,7 +145,7 @@ def extract_f5_all(filename, args):
             reads = list(hdf.keys())
             if 'read' not in reads[1]:
                 if args.verbose:
-                    sys.stderr.write("{} detected as a single fast5 file\n".format(filename)) 
+                    sys.stderr.write("{} detected as a single fast5 file\n".format(filename))
                 multi = False
             else:
                 if args.verbose:
@@ -163,7 +163,7 @@ def extract_f5_all(filename, args):
 #                if multi:
 #                    sys.stderr.write("{} detected as a multi fast5 file\n".format(filename))
 #                else:
-#                    sys.stderr.write("{} detected as a single fast5 file\n".format(filename)) 
+#                    sys.stderr.write("{} detected as a single fast5 file\n".format(filename))
 #        elif args.type == "multi":
 #            multi = True
 
@@ -181,14 +181,14 @@ def extract_f5_all(filename, args):
                 digitisation = hdf['UniqueGlobalKey/channel_id'].attrs['digitisation']
                 offset = hdf['UniqueGlobalKey/channel_id'].attrs['offset']
                 range = float("{0:.2f}".format(hdf['UniqueGlobalKey/channel_id'].attrs['range']))
-                
-                # convert to pA                    
+
+                # convert to pA
                 if not(args.raw_signal):
                     f5_dic['raw'] = np.array(f5_dic['raw'], dtype=int)
                     f5_dic['raw'] = convert_to_pA_numpy(f5_dic['raw'], digitisation, range, offset)
                     f5_dic['raw'] = np.round(f5_dic['raw'], 2)
 
-                # save the extra info for printing                
+                # save the extra info for printing
                 if args.extra_info:
                     f5_dic['digitisation'] = digitisation
                     f5_dic['offset'] = offset
@@ -202,7 +202,7 @@ def extract_f5_all(filename, args):
         # multi fast5 files
         else:
             for read in reads:
-                f5_dic[read] = {'raw': [], 'seq': '', 'readID': '', 
+                f5_dic[read] = {'raw': [], 'seq': '', 'readID': '',
                                 'digitisation': 0.0, 'offset': 0.0, 'range': 0.0,
                                 'sampling_rate': 0.0}
 
@@ -220,18 +220,18 @@ def extract_f5_all(filename, args):
                         f5_dic[read]['raw'] = np.array(f5_dic[read]['raw'], dtype=int)
                         f5_dic[read]['raw'] = convert_to_pA_numpy(f5_dic[read]['raw'], digitisation, range, offset)
                         f5_dic[read]['raw'] = np.round(f5_dic[read]['raw'], 2)
-                    
-                    # save the extra info for printing                    
+
+                    # save the extra info for printing
                     if args.extra_info:
                         f5_dic[read]['digitisation'] = digitisation
                         f5_dic[read]['offset'] = offset
                         f5_dic[read]['range'] = range
                         f5_dic[read]['sampling_rate'] = hdf[read]['channel_id'].attrs['sampling_rate']
-                    
+
                 except:
                     traceback.print_exc()
                     sys.stderr.write("extract_fast5_all():failed to read readID: {}".format(read))
-    
+
     return f5_dic, multi
 
 # new numpy version of convert function
@@ -248,7 +248,7 @@ def print_data(data, args, fast5):
         print('{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(fast5, data['readID'],
                 data['digitisation'], data['offset'], data['range'],
                 data['sampling_rate'], '\t'.join(ar)))
-    else:                        
+    else:
         print('{}\t{}\t{}'.format(
                 fast5, data['readID'], '\t'.join(ar)))
 
@@ -267,4 +267,3 @@ def f5_check_multi(hdf):
 
 if __name__ == '__main__':
     main()
-
