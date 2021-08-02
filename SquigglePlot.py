@@ -176,7 +176,7 @@ def main():
                     else:
                         # extract data from file
                         sig = process_fast5(fast5_file, args)
-                        if not sig:
+                        if not sig.any():
                             sys.stderr.write("main():data not extracted. Moving to next file: {}".format(fast5_file))
                             continue
                         if N:
@@ -231,7 +231,7 @@ def main():
             if args.single:
                 sig = process_fast5(fast5, args)
                 read = fast5.split('/')[-1]
-                if not sig:
+                if not sig.any():
                     sys.stderr.write("main():data not extracted: {}".format(args.ind))
                     parser.print_help(sys.stderr)
                     sys.exit(1)
