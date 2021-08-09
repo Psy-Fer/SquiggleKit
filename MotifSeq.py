@@ -111,6 +111,10 @@ def main():
                         help="[Experimental] standard deviation constant")
     parser.add_argument("-v", "--view", action="store_true",
                         help="view each output")
+    parser.add_argument("--save",
+                        help="save path for images")
+    parser.add_argument("--img", default="png",
+                        help="Type of image to save. png, jpeg, pdf, svg, etc. (default: png)")
     parser.add_argument("-scale_hi", "--scale_hi", type=int, default=1200,
                         help="Upper limit for signal outlier scaling")
     parser.add_argument("-scale_low", "--scale_low", type=int, default=0,
@@ -445,11 +449,14 @@ def get_region_multi(args, sig, model, m_order, fast5, readID, m, b, std, L):
             print("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(fast5, readID, name, start, end, end - start, dist, mod_mean, mod_stdev, Z, p_value, hit_P))
         c += 1
         if args.view:
-            view_region(sig, start, end, cost, path, model, dist, readID)
+            view_region(args, sig, start, end, cost, path, model, dist, readID)
+        elif args.save:
+            view_region(args, sig, start, end, cost, path, model, dist, readID)
+
     return
 
 
-def view_region(sig, start, end, cost, path, model, dist, readID):
+def view_region(args, sig, start, end, cost, path, model, dist, readID):
     '''
     Visualise model position in Signal
     '''
@@ -511,8 +518,11 @@ def view_region(sig, start, end, cost, path, model, dist, readID):
     # img=mpimg.imread('cappy.png')
     # plt.imshow(img)
 
-
-    plt.show()
+    if args.view:
+        plt.show()
+    if args.save:
+        out_file = os.path.join(args.save, "{}.{}".format(readID, args.img))
+        plt.savefig(out_file)
     plt.clf()
 
 
