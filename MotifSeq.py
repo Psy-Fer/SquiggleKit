@@ -460,6 +460,8 @@ def view_region(args, sig, start, end, cost, path, model, dist, readID):
     '''
     Visualise model position in Signal
     '''
+    if args.save:
+        plt.switch_backend('Agg')
     name = list(model.keys())[0]
     fig = plt.figure(1)
     fig.suptitle("readID: {}".format(readID), fontsize=16)
