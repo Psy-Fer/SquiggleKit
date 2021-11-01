@@ -52,16 +52,19 @@ SquiggleKit tools were not made to be executable to allow for use with varying p
 Use pip for python 2 and pip3 for python 3. User environments may vary.
 
 for
-`fast5_fetcher.py`, `SquigglePull.py`, `segmenter.py`:
+`fast5_fetcher.py`, `SquigglePull.py`, `SquigglePlot.py` `segmenter.py`:
 
 - numpy
 - matplotlib
 - h5py
 - sklearn
 - ont_fast5_api
+- pyslow5
 
 ```
 pip install numpy h5py sklearn matplotlib
+# do this after to get around an annoying version check bug
+pip install pyslow5
 ```
 
 for `MotifSeq.py`:
