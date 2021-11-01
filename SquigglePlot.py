@@ -16,6 +16,7 @@ matplotlib.rcParams['figure.dpi'] = 80
 # matplotlib.rcParams['savefig.dpi'] = 300
 import numpy as np
 import h5py
+import pyslow5
 
 '''
 
@@ -83,6 +84,8 @@ def main():
                         help="Fast5 top dir")
     group.add_argument("-s", "--signal",
                         help="Extracted signal file from SquigglePull. Currently not compatible with conversion")
+    group.add_argument("-w", "--slow5",
+                        help="Use slow5/blow5 file for signal input")
     group.add_argument("-i", "--ind", nargs='+',
                         help="Individual fast5 file/s")
     parser.add_argument("-r", "--readID",
@@ -221,6 +224,29 @@ def main():
                     view_sig(args, sig, fast5, fast5)
                 else:
                     view_sig(args, sig, readID, fast5)
+
+
+    elif args.slow5:
+        s5 = pyslow5.Open(args.slow5, 'r')
+        if args.raw_signal:
+            data = s5.seq_reads()
+        else:
+            data = s5.seq_reads(pA=True)
+        for read in data:
+            sig = np.array(read['signal'])
+            readID = read['read_id']
+            if args.readID:
+                if args.readID != readID:
+                    continue
+            if N:
+                sig = sig[:N]
+            elif N1 or N2:
+                sig = sig[N1:N2]
+            sig = scale_outliers(sig, args)
+            if args.single:
+                view_sig(args, sig, args.slow5, args.slow5)
+            else:
+                view_sig(args, sig, readID, args.slow5)
 
     elif args.ind:
         files = args.ind
