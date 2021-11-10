@@ -9,6 +9,9 @@
 **Pre-print:** [SquiggleKit: A toolkit for manipulating nanopore signal data](https://doi.org/10.1101/549741)
 
 
+** Cleanup in progress **
+
+
 ## Coming changes
 
 **Fast5_fetcher:** merge single files into multi-fast5 files
