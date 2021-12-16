@@ -97,6 +97,23 @@ pip3 install machine-learning-py
 ```
 
 
+## VBZ compressed fast5
+
+If your fast5 files are compressed with ONT VBZ, then you will need to install their VBZ plugin for hdf5/h5py
+
+https://github.com/nanoporetech/vbz_compression/releases
+
+This will fix errors like this:
+
+```
+OSError: Can't read data (can't open directory: /home/jamfer/squigglekit_env/lib/hdf5/plugin)
+extract_fast5_all():failed to read readID: read_6c3c3be4-e5b0-89aa-b0a0-a1c0167ce136 Traceback (most recent call last):
+File "SquigglePull.py", line 211, in extract_f5_all
+for col in hdf[read]['Raw/Signal'][()]:
+File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+```
+
 
 ## Quick start
 
