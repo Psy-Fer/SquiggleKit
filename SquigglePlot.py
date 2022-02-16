@@ -228,16 +228,13 @@ def main():
 
     elif args.slow5:
         s5 = pyslow5.Open(args.slow5, 'r')
-        if args.raw_signal:
-            data = s5.seq_reads()
-        else:
-            data = s5.seq_reads(pA=True)
-        for read in data:
+        if args.readID:
+            if args.raw_signal:
+                read = s5.get_read(args.readID)
+            else:
+                read = s5.get_read(args.readID, pA=True)
             sig = np.array(read['signal'])
             readID = read['read_id']
-            if args.readID:
-                if args.readID != readID:
-                    continue
             if N:
                 sig = sig[:N]
             elif N1 or N2:
@@ -247,6 +244,23 @@ def main():
                 view_sig(args, sig, args.slow5, args.slow5)
             else:
                 view_sig(args, sig, readID, args.slow5)
+        else:
+            if args.raw_signal:
+                data = s5.seq_reads()
+            else:
+                data = s5.seq_reads(pA=True)
+            for read in data:
+                sig = np.array(read['signal'])
+                readID = read['read_id']
+                if N:
+                    sig = sig[:N]
+                elif N1 or N2:
+                    sig = sig[N1:N2]
+                sig = scale_outliers(sig, args)
+                if args.single:
+                    view_sig(args, sig, args.slow5, args.slow5)
+                else:
+                    view_sig(args, sig, readID, args.slow5)
 
     elif args.ind:
         files = args.ind
