@@ -541,7 +541,7 @@ def get_filenames_multi_f5(seq_sum, ids):
             if head:
                 head = False
                 for i in range(len(line)):
-                    if line[i] == "filename_fast5":
+                    if line[i] in ["filename_fast5", "filename"]:
                         f5_idx=i
                     elif line[i] == "read_id":
                         r_idx=i
@@ -554,7 +554,7 @@ def get_filenames_multi_f5(seq_sum, ids):
                 ids.add(line[r_idx])
             else:
                 if line:
-                    if line[2] in ids:
+                    if line[r_idx] in ids:
                         if line[f5_idx] not in files:
                             files[line[f5_idx]] = []
                         files[line[f5_idx]].append(line[r_idx])
