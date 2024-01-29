@@ -211,7 +211,7 @@ def main():
                     sig = np.array([float(i) for i in l[4:]], dtype=float)
                 else:
                     sig = np.array([int(i) for i in l[4:]], dtype=int)
-                if not sig:
+                if not sig.any():
                     sys.stderr.write("No signal found: {}".format(args.signal))
                     parser.print_help(sys.stderr)
                     sys.exit(1)
