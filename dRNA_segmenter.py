@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import pandas as pd
 import argparse
+import pyslow5 as slow5
 
 
 '''
@@ -58,6 +59,8 @@ def main():
     #group = parser.add_mutually_exclusive_group()
     parser.add_argument("-s", "--signal",
                         help="Signal file")
+    parser.add_argument("-f", "--slow5",
+                        help="slow5 file")
     parser.add_argument("-c", "--start_col", type=int, default="4",
                         help="start column for signal")
 
@@ -68,16 +71,14 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
     # arguments...put this into something better for Tansel
-    sig = args.signal         # signal file
+    sig_file = args.signal         # signal file
     w = 2000
 
-    with open(sig, 'rt') as s:
-        for read in s:
-            read = read.strip('\n')
-            read = read.split('\t')
-            f5 = read[0]
-            readID = read[1]
-            sig = scale_outliers(np.array([int(i) for i in read[args.start_col:]], dtype=int))
+    if args.slow5:
+        s5 = slow5.Open(args.slow5, 'r')
+        for read in s5.seq_reads():
+            readID = read['read_id']
+            sig = scale_outliers(read['signal'])
 
             s = pd.Series(sig)
             t = s.rolling(window=w).mean()
@@ -122,9 +123,67 @@ def main():
                     continue
                 if b - a < lo_thresh:
                     continue
-                x, y = a - 1000, b - 1000
-                print("{}\t{}\t{}\t{}".format(f5, readID, x, y))
+                if a < 1000:
+                    x, y = a, b - 1000
+                else:
+                    x, y = a - 1000, b - 1000
+                print("{}\t{}\t{}".format(readID, x, y))
                 break
+    else:
+        with open(sig_file, 'rt') as s:
+            for read in s:
+                read = read.strip('\n')
+                read = read.split('\t')
+                f5 = read[0]
+                readID = read[1]
+                sig = scale_outliers(np.array([int(i) for i in read[args.start_col:]], dtype=int))
+
+                s = pd.Series(sig)
+                t = s.rolling(window=w).mean()
+                mn = t.mean()
+                std = t.std()
+                # might need to tighten the bounds a little more
+                # top = mn + (std*0.5)
+                bot = mn - (std*0.5)
+
+                # main algo
+
+                begin  = False
+                seg_dist = 1500
+                hi_thresh = 200000
+                lo_thresh = 2000
+
+                start = 0
+                end = 0
+                segs = []
+                count = -1
+                for i in t:
+                    count += 1
+                    if i < bot and not begin:
+                        start = count
+                        begin = True
+                    elif i < bot:
+                        end = count
+                    elif i > bot and begin:
+                        if segs and start - segs[-1][1] < seg_dist:
+                            segs[-1][1] = end
+                        else:
+                            segs.append([start, end])
+                        start = 0
+                        end = 0
+                        begin = False
+                    else:
+                        continue
+
+                x, y = 0, 0
+                for a, b in segs:
+                    if b - a > hi_thresh:
+                        continue
+                    if b - a < lo_thresh:
+                        continue
+                    x, y = a - 1000, b - 1000
+                    print("{}\t{}\t{}\t{}".format(f5, readID, x, y))
+                    break
 
 
 def scale_outliers(squig):
