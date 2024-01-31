@@ -3,6 +3,10 @@ import sys
 import pandas as pd
 import argparse
 import pyslow5 as slow5
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+rcParams['figure.figsize'] = [20.0, 12.0]
+
 
 
 '''
@@ -63,6 +67,8 @@ def main():
                         help="slow5 file")
     parser.add_argument("-c", "--start_col", type=int, default="4",
                         help="start column for signal")
+    parser.add_argument("-p", "--plot", action="store_true",
+                        help="Live plot each segment")
 
     args = parser.parse_args()
 
@@ -129,6 +135,21 @@ def main():
                     x, y = a - 1000, b - 1000
                 print("{}\t{}\t{}".format(readID, x, y))
                 break
+        
+            if args.plot:
+                fig = plt.figure(1)
+                ax = fig.add_subplot(111)
+                fig.suptitle("readID: {}\nstart: {}, stop: {}\nbot: {}".format(readID, x, y, round(bot, 2)), fontsize=16)
+                ax.axvline(x=x, color='m')
+                ax.axvline(x=y, color='m')
+                ax.axhline(y=bot, color='b')
+                ax.axvspan(x, y, alpha=0.5, color='orange')
+                plt.plot(sig, color='k')
+                plt.show()
+                plt.clf()
+
+
+
     else:
         with open(sig_file, 'rt') as s:
             for read in s:
