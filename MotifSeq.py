@@ -9,7 +9,7 @@ import numpy as np
 import scipy.stats as st
 import h5py
 import scrappy
-from mlpy import dtw_subsequence
+from dtw import dtw_subsequence
 from matplotlib import rcParams
 rcParams['pdf.fonttype'] = 42
 rcParams['ps.fonttype'] = 42
